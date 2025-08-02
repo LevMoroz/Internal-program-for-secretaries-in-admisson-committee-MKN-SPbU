@@ -83,10 +83,11 @@ try:
 
         print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
     
-    if not os.path.isfile(os.path.join(cd, 'conc.csv')) or not os.path.isfile(os.path.join(cd, 'google.csv')):
-        raise Exception('There\'s no Conc.csv or Google.csv file!')
+    conc = 'conc.csv'
+    if not os.path.isfile(os.path.join(cd, conc)) or not os.path.isfile(os.path.join(cd, google)):
+        raise Exception(f'There\'s no {conc} or {google} file!')
 
-    print(f'Taking files: \033[3;33mconc.csv, {google}, {doc}, {exam}, {state}\033[0m')
+    print(f'Taking files: \033[3;33m{conc}, {google}, {doc}, {exam}, {state}\033[0m')
     
     cur = conn.cursor()
 
@@ -463,7 +464,7 @@ try:
 
     conn.commit()
     
-    imp('Conc.csv', 'concurs_name')
+    imp(conc, 'concurs_name')
 
     imp(google, 'google')
 
@@ -559,7 +560,7 @@ try:
     print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m\n\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
 
 except ValueError as e:
-    print("\033[31mThere\'s no \'*документы_поступающих*\', \'*все_заявления*\' or \'*егэ*\' file!\033[0m", e)
+    print(f"\033[31mThere\'s no \'*документы_поступающих*\', \'*все_заявления*\', \'*все программы*\', \'{google}\' or \'*егэ*\' file!\033[0m", e)
 
 except Exception as e:
     print("\033[31mError: ", e)
