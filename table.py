@@ -36,11 +36,6 @@ except Exception as e:
     sys.exit()
 
 try:
-    print('\033[4;43mChoose type: 1 for std usage, 2 only for updating gu\'s checks.\033[0m Your choice: ', end = '')
-    type = int(input())
-    if type != 1 and type != 2:
-        raise Exception('Not correct type!')
-
     if getattr(sys, 'frozen', False):
         cd = os.path.dirname(sys.executable)
     else:
@@ -245,8 +240,26 @@ try:
                 103130, 103368, 103381, 103560, 104300
             )
             and reg_date <= '2025-07-25 18:00:00'::timestamp;
+                
+    create or replace view state_mkn_p as
+        select * from state where uuid in 
+                (
+                    select distinct uuid from state
+	                    group by uuid having max
+						(
+							case when id_k in
+		                        (
+		                            103081, 103382, 103410, 104373, 147333, 147671,
+			                        103089, 103275, 103320, 104309, 147347,
+			                        103108, 103312, 103422, 103582, 104479,
+			                        103130, 103368, 103381, 103560, 104300
+		                        )
+	                        then 0 end
+						) 
+						is not null
+                );
 
-
+                
     create or replace view exam_result as
         select e.uuid, MAX(case when subject = 'Математика' then result end) as M,
             MAX(case when subject = 'Информатика и ИКТ' then result end) as Inf,
@@ -325,8 +338,7 @@ try:
         (
             select id_app, pay, id_k, 
                 row_number() over (partition by id_app, pay order by priority) as rp
-            from state where status != 'Отозвано'
-            --Count all's real priority!
+            from state_mkn_p where status != 'Отозвано'
         );
 
     create or replace view priority as
@@ -479,8 +491,7 @@ try:
     print('\033[3mCalculating result table...', end = '', flush = True)
     tt = time.time()
 
-    if type == 1:
-        cur.execute("""
+    cur.execute("""
         refresh materialized view gu;
         
         update google set sum = null, phone = '''' || phone;
@@ -525,32 +536,8 @@ try:
                     max(change_date) over (partition by uuid) desc,
                     uuid desc, id_k asc, change_date desc;
         """)
-        conn.commit()
+    conn.commit()
 
-    if type == 2:
-        cur.execute("""
-        create table google_t as
-	        select *, row_number() over() as ord from google;
-
-        refresh materialized view gu;
-            
-        update google_t set sum = null, phone = '''' || phone;
-
-        update google_t set line_check = line_agr, online_check = online_agr from gu where google_t.uuid = gu.uuid;
-        update google_t set app_status = gu.app_status from gu where google_t.id_app = gu.id_app and google_t.id_k = gu.id_k;
-                    
-        update google_t set snils = gu.snils from gu where google_t.snils is null and google_t.uuid = gu.uuid;
-                    
-        update google_t set att_n = gu.att_n, att_p = gu.att_p, ach = gu.ach, att = gu.att from gu 
-            where (google_t.att_p = 'не пров' or google_t.att_p is null or google_t.att_n is null) and google_t.uuid = gu.uuid;
-
-        create table result as
-            select * from google_t order by ord asc; 
-
-        --alter table result drop column ord;          
-        """)
-        conn.commit()
-    
     print(f" - \033[1;4mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
 
     with open('res.csv', 'w', encoding = 'utf-8') as f:
