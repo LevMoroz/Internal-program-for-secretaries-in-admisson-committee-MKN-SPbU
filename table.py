@@ -26,7 +26,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.5\033[0m')
+print('\033[1;37;42mGU loading program is started. V0.6\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -547,7 +547,7 @@ try:
     print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m\n\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
 
 except ValueError as e:
-    print(f"\033[31mThere\'s no \'*документы_поступающих*\', \'*все_заявления*\', \'*все программы*\', \'{google}\' or \'*егэ*\' file!\033[0m", e)
+    print("\033[31mThere\'s no \'*документы_поступающих*\', \'*все_заявления*\', \'*все программы*\', google table or \'*егэ*\' file!\033[0m", e)
 
 except Exception as e:
     print("\033[31mError: ", e)
