@@ -26,7 +26,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.6\033[0m')
+print('\033[1;37;42mGU loading program is started. V0.7mega\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -508,33 +508,36 @@ try:
         update google set inf = gu.inf from gu where google.inf is null and google.uuid = gu.uuid;
         update google set phys = gu.phys from gu where google.phys is null and google.uuid = gu.uuid;
         update google set rus = gu.rus from gu where google.rus is null and google.uuid = gu.uuid;
+    """)
+    conn.commit()
+
+    cur.execute("""
+        create index google_i on google using btree (id_app, id_k);
 
         create table result as
-            with g as (select * from google where Status_o is not null)
-                select * from
-                (
-                    select * from gu where change_date > 
-                        coalesce
-                        (
-                            case when (select MAX(Status_o) from g where g.id_app = gu.id_app and g.id_k = gu.id_k) is null then '2025-01-01 00:00:00'::timestamp else null end,
-                            (select MAX(change_date) from g where g.id_app = gu.id_app and g.id_k = gu.id_k), 
-                            '2025-01-01 00:00:00'
-                        )
+            select * from
+            (
+                select * from gu where change_date > 
+                    coalesce
+                    (
+                        (select MAX(change_date) from google as g where g.id_app = gu.id_app and g.id_k = gu.id_k and g.status_o is not null), 
+                        '2025-01-01 00:00:00'
+                    )
                 
-                    union all
+                union all
                 
-                    select * from g
-                )
-                order by
-                    max(case when status is null or status = '' then 1 else null end) over (partition by uuid) asc,
-                    (case when min(rp) over (partition by uuid) = 1 then 1 else null end) asc,
-                    max(case when status is null or status = '' then 1
-                        when status = 'нет в 1С' then 2
-                        when status = 'в процессе' then 3
-                        else 4
-                    end) over (partition by uuid) asc,
-                    max(change_date) over (partition by uuid) desc,
-                    uuid desc, id_k asc, change_date desc;
+                select * from google where google.status_o is not null
+            )
+            order by
+                max(case when status is null or status = '' then 1 else null end) over (partition by uuid) asc,
+                (case when min(rp) over (partition by uuid) = 1 then 1 else null end) asc,
+                max(case when status is null or status = '' then 1
+                    when status = 'нет в 1С' then 2
+                    when status = 'в процессе' then 3
+                    else 4
+                end) over (partition by uuid) asc,
+                max(change_date) over (partition by uuid) desc,
+                uuid desc, id_k asc, change_date desc;
         """)
     conn.commit()
 
