@@ -26,7 +26,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.7mega\033[0m')
+print('\033[1;37;42mGU loading program is started. V0.8ultra+fp\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -87,7 +87,7 @@ try:
     cur = conn.cursor()
 
     cur.execute("""
-    drop table if exists state, doc, exam, google, concurs_name, result, google_t cascade;
+    drop table if exists state, doc, exam, google, concurs_name, result cascade;
 
     SET datestyle = 'ISO, DMY';
 
@@ -154,8 +154,7 @@ try:
         region text,
         subject text,
         result int,
-        date2 date,
-        constraint uniqueness_exam Primary Key (doc_id)
+        date2 date
     );
 
     create table if not exists doc 
@@ -229,9 +228,27 @@ try:
         comment text,
         comment_otv text
     );
+    """)
 
+    conn.commit()
+    
+    imp(conc, 'concurs_name')
 
-    create or replace view state_mkn as
+    imp(google, 'google')
+
+    imp(state, 'state')
+
+    imp(doc, 'doc')
+
+    imp(exam, 'exam')
+
+    #input()
+
+    print('\033[3mCalculating result table...', end = '', flush = True)
+    tt = time.time()
+
+    cur.execute("""
+    create materialized view state_mkn as
         select * from state where id_k in
             (
                 103081, 103382, 103410, 104373, 147333, 147671,
@@ -240,7 +257,10 @@ try:
                 103130, 103368, 103381, 103560, 104300
             )
             and (reg_date <= '2025-07-25 18:00:00'::timestamp or pay = 'Платные места');
-                
+
+    create materialized view state_mkn_id as
+        select distinct uuid from state_mkn;
+                    
     create or replace view state_mkn_p as
         select * from state where uuid in 
                 (
@@ -265,7 +285,7 @@ try:
             MAX(case when subject = 'Информатика и ИКТ' then result end) as Inf,
             MAX(case when subject = 'Физика' then result end) as Phys,
             MAX(case when subject = 'Русский язык' then result end) as Rus
-        from exam as e inner join (select distinct uuid from state_mkn) as s on e.uuid = s.uuid 
+        from exam as e inner join state_mkn_id as s on e.uuid = s.uuid 
         where subject is not null and 
             e.status = 'Подтвержден в ФИС ГИА и приема' and date2 >= '2021-01-01'
         group by e.uuid;
@@ -274,7 +294,7 @@ try:
     create or replace view ach as
         with t as
         (
-            select d.uuid, d.type, d.N, d.organisation, d.status from (select distinct uuid from state_mkn) as s left join doc as d on s.uuid = d.uuid 
+            select d.uuid, d.type, d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
             where not d.type ilike '%Диплом бакалавра%' and
                     d.type not in 
                     ('Результат ЕГЭ', 'Итоговое сочинение',
@@ -334,11 +354,11 @@ try:
         );
 
 
-    create or replace view real_p as
+    create materialized view real_p as
         (
             select id_app, pay, id_k, 
                 row_number() over (partition by id_app, pay order by priority) as rp
-            from state_mkn_p where status != 'Отозвано'
+            from state_mkn where status != 'Отозвано'
         );
 
     create or replace view priority as
@@ -380,7 +400,7 @@ try:
                 MAX(case when rp = 1 then id_k end) as P1,
                 MAX(case when rp = 2 then id_k end) as P2,
                 MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay ~* 'Целевая недетализированная квота' group by id_app
+            from real_p where pay = 'Целевая недетализированная квота' group by id_app
 
             union all
             
@@ -395,8 +415,8 @@ try:
         left join concurs_name as s1 on t.p1 = s1.id_k
         left join concurs_name as s2 on t.p2 = s2.id_k
         left join concurs_name as s3 on t.p3 = s3.id_k;
-
-
+       
+                
     create materialized view GU as
         select '' as Who,
             '' as Status,
@@ -471,31 +491,11 @@ try:
             left join ach as a on s.uuid = a.uuid
             left join priority as p on s.id_app = p.id_app and s.pay = p.descr and s.status != 'Отозвано'
             left join real_p as rp on s.id_app = rp.id_app and s.id_k = rp.id_k
-            left join concurs_name as c on s.id_k = c.id_k;
-    """)
-
-    conn.commit()
-    
-    imp(conc, 'concurs_name')
-
-    imp(google, 'google')
-
-    imp(state, 'state')
-
-    imp(doc, 'doc')
-
-    imp(exam, 'exam')
-
-    #input()
-
-    print('\033[3mCalculating result table...', end = '', flush = True)
-    tt = time.time()
-
-    cur.execute("""
-        refresh materialized view gu;
+            left join concurs_name as c on s.id_k = c.id_k;       
     """)
     conn.commit()
     print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
+    tt = time.time()
 
     cur.execute("""
         update google set sum = null, phone = '''' || phone;
@@ -515,6 +515,7 @@ try:
     """)
     conn.commit()
     print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
+    tt = time.time()
 
     cur.execute("""
         create index google_i on google using btree (id_app, id_k);
