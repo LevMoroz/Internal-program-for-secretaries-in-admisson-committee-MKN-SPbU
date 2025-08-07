@@ -239,7 +239,7 @@ try:
                 103108, 103312, 103422, 103582, 104479,
                 103130, 103368, 103381, 103560, 104300
             )
-            and reg_date <= '2025-07-25 18:00:00'::timestamp;
+            and (reg_date <= '2025-07-25 18:00:00'::timestamp or pay = 'Платные места');
                 
     create or replace view state_mkn_p as
         select * from state where uuid in 
@@ -493,7 +493,11 @@ try:
 
     cur.execute("""
         refresh materialized view gu;
-        
+    """)
+    conn.commit()
+    print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
+
+    cur.execute("""
         update google set sum = null, phone = '''' || phone;
 
         update google set line_check = line_agr, online_check = online_agr from gu where google.uuid = gu.uuid;
@@ -510,6 +514,7 @@ try:
         update google set rus = gu.rus from gu where google.rus is null and google.uuid = gu.uuid;
     """)
     conn.commit()
+    print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
 
     cur.execute("""
         create index google_i on google using btree (id_app, id_k);
