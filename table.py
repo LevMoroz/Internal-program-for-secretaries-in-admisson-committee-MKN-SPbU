@@ -26,7 +26,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.8ultra+fp\033[0m')
+print('\033[1;37;42mGU loading program is started. V0.9ext\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -71,7 +71,7 @@ try:
         tt = time.time()
         print(f'\033[3;36m.xlsx file {state} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
     
-        rf = pandas.read_excel(state, dtype = 'object', usecols = 'B, C, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP', engine = 'calamine')
+        rf = pandas.read_excel(state, dtype = 'object', usecols = 'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP', engine = 'calamine')
         
         state = state.replace('xlsx', 'csv')
         rf.to_csv(state, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
@@ -97,7 +97,7 @@ try:
         uuid int,
         Name text,
         --Sex text,
-        --birth_date date,
+        birth_date date,
         --birth_Place text,
         Phone text,
         Mail text,
@@ -294,7 +294,7 @@ try:
     create or replace view ach as
         with t as
         (
-            select d.uuid, d.type, d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
+            select d.uuid, d.type, d.S, d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
             where not d.type ilike '%Диплом бакалавра%' and
                     d.type not in 
                     ('Результат ЕГЭ', 'Итоговое сочинение',
@@ -302,7 +302,7 @@ try:
                         'Медицинская справка', 'Удостоверение волонтера (волонтерская книжка)')
         )
         select uuid,
-            (case when gto = 100 or att = 10 then 10 else 0 end) as ach,
+            (case when att = 10 then 10 else 0 end) as ach,
             (case when gto = 10 then 'есть подтв'
                 when gto = 0 then 'не подтв'
                 else 'нет' end) as gto,
@@ -317,39 +317,32 @@ try:
                 when olimp = 10 then 'I ур?'
                 when olimp = 1 then 'II/III ур?'
                 else '' end) as bvi,
-            place, att_n, 
+            place, --pasp_s, pasp_n, 
+            att_n,
             (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
-                else 'не пров' end) as att_p
+                else 'не пров' end) as att_p--, att_o
         from 
         (
             select t.uuid,
                 MAX(case when type ~* '(знак гто)' then
                         case when status ~* '(Подтвержден ЕПГУ)' then 10 else 0 end
-                    else null
                 end) as gto,
-                MAX(case when type ~* '(отличием|медал)' then
+                MAX(case when type ~* '(отличием|медал|цвет)' then
                         case when status ~* '(Подтвержден в ФРДО)' then 10 else 0 end
-                    else null
                 end) as att,
                 MAX(case when type ~* '(олимпиад)' then
                         case when type ~* '(всерос)' then 100
                         when type ~* '(II и III уровня)' then 1
                         when type ~* '(I уровня)' then 10
                         else 0 end
-                    else null 
                 end) as olimp,
-                MAX(case when not type ~* '(знак гто|отличием|медал|олимпиад|паспорт|аттестат)' then 0
-                    else null
-                end) as other,
-                MAX(case when type ~* '(паспорт)' then organisation 
-                    else null
-                end) as place,
-                MAX(case when type ~* '(аттестат)' then N
-                    else null
-                end) as att_n,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status
-                    else null
-                end) as att_p
+                MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
+                MAX(case when type ~* '(паспорт)' then organisation end) as place,
+                --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
+                --MAX(case when type ~* '(паспорт)' then n end) as pasp_n,
+                MAX(case when type ~* '(аттестат)' then N end) as att_n,
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p--,
+                --MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then organisation end) as att_o
             from t group by t.uuid
         );
 
@@ -358,7 +351,7 @@ try:
         (
             select id_app, pay, id_k, 
                 row_number() over (partition by id_app, pay order by priority) as rp
-            from state_mkn where status != 'Отозвано'
+            from state_mkn_p where status != 'Отозвано'
         );
 
     create or replace view priority as
@@ -434,9 +427,12 @@ try:
             '' as Status1C,
             '' as Secret,
             s.name,
+            --s.birth_date,
             s.snils,
             a.att_n,
             a.att_p,
+            --a.att_o,
+            --a.pasp_s || ' ' || a.pasp_n,
             '' as Call,
             '' as Call_res,
             null::int as prob,
