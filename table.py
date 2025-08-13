@@ -1,11 +1,15 @@
 import os
 import psycopg2
 import sys
-from colorama import init, Fore, Back, Style
+from colorama import init
 import time
 import pandas
 import re
 import psutil
+
+###
+### Developed by Morozov Lev, SP MKN SPbU 2025
+###
 
 st = time.time()
 pr = psutil.Process(os.getpid())
@@ -24,9 +28,26 @@ def imp(fn: str, tn: str) -> None:
     conn.commit()
     print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
 
+def cvt(file: str, uc) -> None:
+    tt = time.time()
+    
+    rf = pandas.read_csv(file, dtype = 'object', engine = 'c', nrows = 0,
+        sep = ';', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+    
+    if rf.shape[1] != len(uc):
+        print(f'\033[3;36mFile {file} is latest. Converting to correct format...\033[0m', end = '', flush = True)
+
+        rf = pandas.read_csv(file, dtype = 'object', engine = 'c', #skiprows = sr,
+            usecols = uc, sep = ';', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+
+        rf.to_csv(file, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
+        print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+    else:
+        print(f'\033[3;36m{file} is in correct format!\033[0m')
+
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.9ext\033[0m')
+print('\033[1;37;42mGU loading program is started. V0.99i\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -51,33 +72,49 @@ try:
 
     state = lst(files, 'все_заявления')
 
-    google = lst(filec, 'все программы|google.csv')
+    google = lst(filec, 'все программы')
 
-    if google != 'google.csv':
+    if google != 'google.csv': # Всегда Истина!
         tt = time.time()
-        print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
     
-        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-        sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
+        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', nrows = 1, sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
 
-        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-        
-        google = 'google.csv'
-        rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
+        if rf.iloc[0, 0].find('Фамилия') == -1:
+            print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
 
-        print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+            sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
+
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+            
+            rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
+
+            print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+        else:
+            print(f'\033[3;36m{google} is in correct format!\033[0m')
     
     if state.endswith('.xlsx'):
         tt = time.time()
         print(f'\033[3;36m.xlsx file {state} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
-    
-        rf = pandas.read_excel(state, dtype = 'object', usecols = 'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP', engine = 'calamine')
+        #'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP'
+        rf = pandas.read_excel(state, dtype = 'object', usecols = 
+            ['Уникальный код поступающего', 'ФИО', #'Дата рождения ' ???
+                'Телефон', 'Почта', 'СНИЛС', #'Серия', 'Номер',
+                'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Вид мест', 'Приоритет', 'Статус', 
+                'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'], 
+            engine = 'calamine')
         
         state = state.replace('xlsx', 'csv')
         rf.to_csv(state, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
 
         print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
     
+    cvt(doc, ['Уникальный код поступающего', 'Тип документа', #'Серия',
+                'Номер', 'Организация, выдавшая документ', 'Статус'])
+        
+    cvt(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
+        
+
     conc = 'conc.csv'
     if not os.path.isfile(os.path.join(cd, conc)) or not os.path.isfile(os.path.join(cd, google)):
         raise Exception(f'There\'s no {conc} or {google} file!')
@@ -97,13 +134,13 @@ try:
         uuid int,
         Name text,
         --Sex text,
-        birth_date date,
+        --birth_date date,
         --birth_Place text,
         Phone text,
         Mail text,
         Snils text,
         --Pasp text,
-        --pasp_S text,
+        --pasp_s text,
         --pasp_n text,
         --Country text,
         --Pasp_date date,
@@ -140,18 +177,18 @@ try:
 
     create table if not exists exam
     (
-        id int,
+        --id int,
         uuid int,
-        doc_id int,
-        doc_type_id int,
+        --doc_id int,
+        --doc_type_id int,
         type text,
         status text,
-        S int,
-        N int,
-        date date,
-        organisation text,
-        reg_n int,
-        region text,
+        --S int,
+        --N int,
+        --date date,
+        --organisation text,
+        --reg_n int,
+        --region text,
         subject text,
         result int,
         date2 date
@@ -159,17 +196,17 @@ try:
 
     create table if not exists doc 
     (	
-        id int,
+        --id int,
         uuid int,
-        doc_id int primary key,
-        type_id int,
+        --doc_id int,
+        --type_id int,
         type text,
-        S text,
+        --S text,
         N text,
-        date date,
+        --date date,
         Organisation text,
-        status text,
-        file text
+        status text--,
+        --file text
     );
 
     create table if not exists concurs_name 
@@ -294,7 +331,8 @@ try:
     create or replace view ach as
         with t as
         (
-            select d.uuid, d.type, d.S, d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
+            select d.uuid, d.type, --d.S, 
+                d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
             where not d.type ilike '%Диплом бакалавра%' and
                     d.type not in 
                     ('Результат ЕГЭ', 'Итоговое сочинение',
@@ -317,7 +355,7 @@ try:
                 when olimp = 10 then 'I ур?'
                 when olimp = 1 then 'II/III ур?'
                 else '' end) as bvi,
-            place, --pasp_s, pasp_n, 
+            initcap(lower(place)) as place, --pasp_s, pasp_n, 
             att_n,
             (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
                 else 'не пров' end) as att_p--, att_o
@@ -426,7 +464,7 @@ try:
             s.uuid,
             '' as Status1C,
             '' as Secret,
-            s.name,
+            initcap(lower(s.name)) as name,
             --s.birth_date,
             s.snils,
             a.att_n,
@@ -466,7 +504,7 @@ try:
             '' as Kvota,
             '' as Docs,
             '''' || s.phone as phone, 
-            s.mail,
+            lower(s.mail) as mail,
             '~' || a.place as Region,
             (
                 case when s.line_check ~* '(ложь|false)' then 'нет'
@@ -495,6 +533,10 @@ try:
 
     cur.execute("""
         update google set sum = null, phone = '''' || phone;
+                
+        --update google set name = initcap(lower(name));
+        --update google set mail = lower(mail);
+        --update google set region = initcap(lower(region));
 
         update google set line_check = line_agr, online_check = online_agr from gu where google.uuid = gu.uuid;
         update google set app_status = gu.app_status from gu where google.id_app = gu.id_app and google.id_k = gu.id_k;
