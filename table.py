@@ -47,7 +47,7 @@ def cvt(file: str, uc) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V0.99i\033[0m')
+print('\033[1;37;42mGU loading program is started. V1.0R\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -100,7 +100,7 @@ try:
         rf = pandas.read_excel(state, dtype = 'object', usecols = 
             ['Уникальный код поступающего', 'ФИО', #'Дата рождения ' ???
                 'Телефон', 'Почта', 'СНИЛС', #'Серия', 'Номер',
-                'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Вид мест', 'Приоритет', 'Статус', 
+                'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Дата добавления КГ', 'Вид мест', 'Приоритет', 'Статус', 
                 'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'], 
             engine = 'calamine')
         
@@ -157,7 +157,7 @@ try:
         --Music text,
         --id_kg int,
         id_k int,
-        --kg_date date,
+        date_k timestamp,
         --source_kg text,
         --direction text,
         --program text,
@@ -221,7 +221,7 @@ try:
     create table if not exists google
     (
         Secr text,
-        Status_o text,
+        Status text,
         id_app int,
         app_status text,
         id_k int,
@@ -243,7 +243,7 @@ try:
         P2 text,
         P3 text,
         OP text,
-        Olimp text,
+        bvi text,
         M int,
         Inf int,
         Phys int,
@@ -285,20 +285,7 @@ try:
     tt = time.time()
 
     cur.execute("""
-    create materialized view state_mkn as
-        select * from state where id_k in
-            (
-                103081, 103382, 103410, 104373, 147333, 147671,
-                103089, 103275, 103320, 104309, 147347,
-                103108, 103312, 103422, 103582, 104479,
-                103130, 103368, 103381, 103560, 104300
-            )
-            and (reg_date <= '2025-07-25 18:00:00'::timestamp or pay = 'Платные места');
-
-    create materialized view state_mkn_id as
-        select distinct uuid from state_mkn;
-                    
-    create or replace view state_mkn_p as
+    create or replace view state_mkn_cut as
         select * from state where uuid in 
                 (
                     select distinct uuid from state
@@ -315,6 +302,24 @@ try:
 						) 
 						is not null
                 );
+    
+    create materialized view state_l as
+        select * from
+	        (select *, row_number() over (partition by id_app, id_k order by date_k desc) as rn from state_mkn_cut)
+        where rn = 1;
+
+    create materialized view state_mkn as
+        select * from state_l where id_k in
+            (
+                103081, 103382, 103410, 104373, 147333, 147671,
+                103089, 103275, 103320, 104309, 147347,
+                103108, 103312, 103422, 103582, 104479,
+                103130, 103368, 103381, 103560, 104300
+            )
+            and (reg_date <= '2025-07-25 18:00:00'::timestamp or pay = 'Платные места');
+
+    create materialized view state_mkn_id as
+        select distinct uuid from state_mkn;
 
                 
     create or replace view exam_result as
@@ -353,7 +358,9 @@ try:
                 else 'нет' end) as other,
             (case when olimp = 100 then 'Всерос?'
                 when olimp = 10 then 'I ур?'
-                when olimp = 1 then 'II/III ур?'
+                when olimp = 5 then 'II/III ур?'
+                when olimp = 1 then 'Иная?'
+                when olimp = 0 then '??'
                 else '' end) as bvi,
             initcap(lower(place)) as place, --pasp_s, pasp_n, 
             att_n,
@@ -369,9 +376,10 @@ try:
                         case when status ~* '(Подтвержден в ФРДО)' then 10 else 0 end
                 end) as att,
                 MAX(case when type ~* '(олимпиад)' then
-                        case when type ~* '(всерос)' then 100
-                        when type ~* '(II и III уровня)' then 1
-                        when type ~* '(I уровня)' then 10
+                        case when type ~* '(всерос)' and status ~* '(Подтвержден ЕПГУ)' then 100
+                        when type ~* '(II и III уровня)' and status ~* '(Подтвержден ЕПГУ)' then 5
+                        when type ~* '(I уровня)' and status ~* '(Подтвержден ЕПГУ)' then 10
+                        when type ~* '(в иной олимпиаде)' and status ~* '(Подтвержден ЕПГУ)' then 1
                         else 0 end
                 end) as olimp,
                 MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
@@ -385,63 +393,23 @@ try:
         );
 
 
-    create materialized view real_p as
+    create or replace view real_p as
         (
             select id_app, pay, id_k, 
                 row_number() over (partition by id_app, pay order by priority) as rp
-            from state_mkn_p where status != 'Отозвано'
+            from state_l where status != 'Отозвано'
         );
 
     create or replace view priority as
         with t as
         (
-            select id_app, 'Основные места в рамках КЦП' as descr,
+            select id_app, pay,
                 MAX(case when rp = 1 then id_k end) as P1,
                 MAX(case when rp = 2 then id_k end) as P2,
                 MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Основные места в рамках КЦП' group by id_app
-        
-            union all
-
-            select id_app, 'Особая квота' as descr,
-                MAX(case when rp = 1 then id_k end) as P1,
-                MAX(case when rp = 2 then id_k end) as P2,
-                MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Особая квота' group by id_app
-        
-            union all
-
-            select id_app, 'Отдельная квота' as descr,
-                MAX(case when rp = 1 then id_k end) as P1,
-                MAX(case when rp = 2 then id_k end) as P2,
-                MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Отдельная квота' group by id_app
-        
-            union all
-
-            select id_app, 'Целевая детализированная квота' as descr,
-                MAX(case when rp = 1 then id_k end) as P1,
-                MAX(case when rp = 2 then id_k end) as P2,
-                MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Целевая детализированная квота' group by id_app
-        
-            union all
-
-            select id_app, 'Целевая недетализированная квота' as descr,
-                MAX(case when rp = 1 then id_k end) as P1,
-                MAX(case when rp = 2 then id_k end) as P2,
-                MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Целевая недетализированная квота' group by id_app
-
-            union all
-            
-            select id_app, 'Платные места' as descr,
-                MAX(case when rp = 1 then id_k end) as P1,
-                MAX(case when rp = 2 then id_k end) as P2,
-                MAX(case when rp = 3 then id_k end) as P3
-            from real_p where pay = 'Платные места' group by id_app
+            from real_p group by id_app, pay
         )
-        select id_app, descr, s1.name as p1, s2.name as p2, s3.name as p3 from t
+        select id_app, pay, s1.name as p1, s2.name as p2, s3.name as p3 from t
         
         left join concurs_name as s1 on t.p1 = s1.id_k
         left join concurs_name as s2 on t.p2 = s2.id_k
@@ -498,7 +466,7 @@ try:
             a.ach,
             a.gto,
             a.att,
-            a.olimp,
+            a.olimp as olimps,
             a.other,
             null::integer as Sum,
             '' as Kvota,
@@ -509,13 +477,13 @@ try:
             (
                 case when s.line_check ~* '(ложь|false)' then 'нет'
                 when s.line_check ~* '(истина|true)' then s.check_place
-            end) as line_agr,
+            end) as line_check,
             (
                 case when s.online_check ~* '(ложь|false)' then 
                     case when s.line_check ~* '(истина|true)' then 'нет'
                     when s.line_check ~* '(ложь|false)' then coalesce(s.check_place, 'нет') end
                 when s.online_check ~* '(истина|true)' then s.check_place
-            end) as online_agr,
+            end) as online_check,
             null::integer as color,
             '' as note,
             '' as note_secret
@@ -523,59 +491,110 @@ try:
             from state_mkn as s
             left join exam_result as e on s.uuid = e.uuid
             left join ach as a on s.uuid = a.uuid
-            left join priority as p on s.id_app = p.id_app and s.pay = p.descr and s.status != 'Отозвано'
+            left join priority as p on s.id_app = p.id_app and s.pay = p.pay and s.status != 'Отозвано'
             left join real_p as rp on s.id_app = rp.id_app and s.id_k = rp.id_k
             left join concurs_name as c on s.id_k = c.id_k;       
     """)
     conn.commit()
     print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
+
     tt = time.time()
 
     cur.execute("""
-        update google set sum = null, phone = '''' || phone;
-                
-        --update google set name = initcap(lower(name));
-        --update google set mail = lower(mail);
-        --update google set region = initcap(lower(region));
-
-        update google set line_check = line_agr, online_check = online_agr from gu where google.uuid = gu.uuid;
-        update google set app_status = gu.app_status from gu where google.id_app = gu.id_app and google.id_k = gu.id_k;
-                    
-        update google set snils = gu.snils from gu where google.snils is null and google.uuid = gu.uuid;
-                    
-        update google set att_n = gu.att_n, att_p = gu.att_p, ach = gu.ach, att = gu.att from gu 
-            where (google.att_p = 'не пров' or google.att_p is null or google.att_n is null) and google.uuid = gu.uuid;
-                    
-        update google set m = gu.m from gu where google.m is null and google.uuid = gu.uuid;
-        update google set inf = gu.inf from gu where google.inf is null and google.uuid = gu.uuid;
-        update google set phys = gu.phys from gu where google.phys is null and google.uuid = gu.uuid;
-        update google set rus = gu.rus from gu where google.rus is null and google.uuid = gu.uuid;
-    """)
-    conn.commit()
-    print(f" \033[35m- {round(time.time() - tt, 3)} s.\033[0m", end = '', flush = True)
-    tt = time.time()
-
-    cur.execute("""
-        create index google_i on google using btree (id_app, id_k);
+        --create index google_i on google using btree (id_app, id_k);
 
         create table result as
             select * from
             (
-                select * from gu where change_date > 
-                    coalesce
+                select 
                     (
-                        (select MAX(change_date) from google as g where g.id_app = gu.id_app and g.id_k = gu.id_k and g.status_o is not null), 
-                        '2025-01-01 00:00:00'
-                    )
+                        case when gu.change_date = t.change_date then t.secr
+                        else ''
+                    end) as secr,
+                    (
+                        case when gu.change_date > t.change_date then 'изменено'
+                        when gu.change_date = t.change_date then t.status
+                        else ''
+                    end) as status,
+                    gu.id_app,
+                    gu.app_status,
+                    gu.id_k,
+                    gu.change_date,
+                    gu.uuid,
+                    t.Status1C,
+                    t.date_d,
+                    gu.Name,
+                    gu.snils,
+                    gu.att_n,
+                    gu.att_p,
+                    t.call,
+                    t.call_res,
+                    t.prob,
+                    gu.pay,
+                    gu.program,
+                    gu.rp,
+                    gu.P1,
+                    gu.P2,
+                    gu.P3,
+                    t.op,
+                    (
+                        case when t.bvi is null then gu.bvi
+                        else t.bvi
+                    end) as bvi,
+                    (
+                        case when t.M != 100 or t.M is null then gu.M
+                        else 100
+                    end) as M,
+                    (
+                        case when t.Inf != 100 or t.Inf is null then gu.Inf
+                        else 100
+                    end) as Inf,
+                    (
+                        case when t.Phys != 100 or t.Phys is null then gu.Phys
+                        else 100
+                    end) as Phys,
+                    (
+                        case when t.Rus != 100 or t.Rus is null then gu.Rus
+                        else 100
+                    end) as Rus,
+                    (
+                        case when t.ach = 10 then 10
+                        else gu.ach
+                    end) as ach,
+                    (
+                        case when t.gto = 'подтв' then 'подтв'
+                        else gu.gto
+                    end) as gto,
+                    (
+                        case when t.att = 'подтв' then 'подтв'
+                        else gu.att
+                    end) att,
+                    (
+                        case when t.olimps != 'есть' and t.olimps != 'нет' then t.olimps
+                        else gu.olimps
+                    end) as olimps,
+                    (
+                        case when t.other != 'есть' and t.other != 'нет' then t.other
+                        else gu.other
+                    end) as other,
+                    null::int as sum,
+                    t.lgota,
+                    t.docs,
+                    gu.phone,
+                    gu.mail,
+                    gu.region,
+                    gu.line_check,
+                    gu.online_check,
+                    t.color,
+                    t.comment,
+                    t.comment_otv 
                 
-                union all
-                
-                select * from google where google.status_o is not null
+                from gu left join google as t on gu.id_app = t.id_app and gu.id_k = t.id_k and t.status is not null and t.status != 'изменено'
             )
             order by
-                max(case when status is null or status = '' then 1 else null end) over (partition by uuid) asc,
+                max(case when status is null or status = '' or status = 'изменено' then 1 else null end) over (partition by uuid) asc,
                 (case when min(rp) over (partition by uuid) = 1 then 1 else null end) asc,
-                max(case when status is null or status = '' then 1
+                max(case when status is null or status = '' or status = 'изменено' then 1
                     when status = 'нет в 1С' then 2
                     when status = 'в процессе' then 3
                     else 4
