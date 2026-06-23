@@ -16,55 +16,71 @@ pr = psutil.Process(os.getpid())
 pr.nice(psutil.REALTIME_PRIORITY_CLASS)
 
 def lst(arr, p: str) -> str:
-    arrs = [f for f in arr if re.search(p, f, re.IGNORECASE)]
-    arrsd = [os.path.getmtime(os.path.join(cd, f)) for f in arrs]
-    return max(zip(arrs, arrsd), key = lambda x: x[1])[0]
-
-def imp(fn: str, tn: str) -> None:
-    print(f"Importing {fn}...", end = '', flush = True)
-    tt = time.time()
-    with open(fn, 'r', encoding = 'utf-8') as f:
-        cur.copy_expert(f"COPY public.{tn} FROM STDIN WITH (FORMAT csv, DELIMITER ';', HEADER TRUE, ENCODING 'UTF8', QUOTE '\"', ESCAPE '''')", f)
-    conn.commit()
-    print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
-
-# Legacy: 
-def fmt_csv(file: str, uc) -> None:
-    tt = time.time()
-    kl = lr
-    rf = pandas.read_csv(file, dtype = 'object', engine = 'c', nrows = 0,
-        sep = ';', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-    
-    if rf.shape[1] != len(uc):
-        print(f'\033[3;36mFile {file} is latest. Converting to correct format...\033[0m', end = '', flush = True)
-
-        rf = pandas.read_csv(file, dtype = 'object', engine = 'c', #skiprows = sr,
-            usecols = uc, sep = ';', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-
-        rf.to_csv(file, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
-        print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
-    else:
-        print(f'\033[3;36m{file} is in correct format!\033[0m')
+    try:
+        arrs = [f for f in arr if re.search(p, f, re.IGNORECASE)]
+        arrsd = [os.path.getmtime(os.path.join(cd, f)) for f in arrs]
+        return max(zip(arrs, arrsd), key = lambda x: x[1])[0]
+    except ValueError as e:
+        print(f"\033[31mThere\'s no *{p}* file!\033[0m")
+        raise e
 
 def cvt_to_csv(file: str, uc) -> str:
-    if file.endswith('.xlsx'):
+    try:
+        if file.endswith('.xlsx'):
+            tt = time.time()
+            print(f'\033[3;36m.xlsx file {file} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
+            
+            rf = pandas.read_excel(file, dtype = 'object', usecols = uc, engine = 'calamine')
+            
+            file = file.replace('xlsx', 'csv')
+            rf.to_csv(file, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
+
+            print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+        else:
+            print(f'\033[3;36m{file} is in correct format!\033[0m')
+
+        return file
+    except Exception as e:
+        print(f"\033[31mError while converting {file}! Wrong or changed format!")
+        raise e
+
+def cvt_google(google: str) -> None:
+    try:
+        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', nrows = 1, sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
         tt = time.time()
-        print(f'\033[3;36m.xlsx file {file} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
-        
-        rf = pandas.read_excel(file, dtype = 'object', usecols = uc, engine = 'calamine')
-        
-        file = file.replace('xlsx', 'csv')
-        rf.to_csv(file, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
 
+        if rf.iloc[0, 0].find('Фамилия') == -1:
+            print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
+
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+            sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
+
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+                    
+            rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
+
+            print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+        else:
+            print(f'\033[3;36m{google} is in correct format!\033[0m')
+    except Exception as e:
+        print(f"\033[31mError while converting {google}! Wrong or changed format!")
+        raise e
+
+def imp(fn: str, tn: str) -> None:
+    try:
+        print(f"Importing {fn}...", end = '', flush = True)
+        tt = time.time()
+        with open(fn, 'r', encoding = 'utf-8') as f:
+            cur.copy_expert(f"COPY public.{tn} FROM STDIN WITH (FORMAT csv, DELIMITER ';', HEADER TRUE, ENCODING 'UTF8', QUOTE '\"', ESCAPE '''')", f)
+        conn.commit()
         print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
-    else:
-        print(f'\033[3;36m{file} is in correct format!\033[0m')
-
-    return file
+    except Exception as e:
+        print(f"\033[31mError while importing {fn}! Wrong or changed format!")
+        raise e
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.0s\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.1s\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -84,31 +100,13 @@ try:
     print(f'Located in directory: {cd}\nHave found xlsx or csv files: {files}')
     
     doc = lst(files, 'документы_поступающих')
-
     exam = lst(files, 'егэ')
-
     state = lst(files, 'все_заявления')
-
     google = lst(filec, 'все программы')
-
-    tt = time.time()
+    conc = lst(filec, 'conc.csv')
     
-    rf = pandas.read_csv(google, dtype = 'object', engine = 'c', nrows = 1, sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+    cvt_google(google)
 
-    if rf.iloc[0, 0].find('Фамилия') == -1:
-        print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
-
-        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-        sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
-
-        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-            
-        rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
-
-        print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
-    else:
-        print(f'\033[3;36m{google} is in correct format!\033[0m')
-    
     state = cvt_to_csv(state, 
                 #'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP'
                 ['Уникальный код поступающего', 'ФИО', #'Дата рождения',
@@ -121,10 +119,6 @@ try:
     
     exam = cvt_to_csv(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
         
-
-    conc = 'conc.csv'
-    if not os.path.isfile(os.path.join(cd, conc)):
-        raise Exception(f'There\'s no {conc} file!')
 
     print(f'Taking files: \033[3;33m{conc}, {google}, {doc}, {exam}, {state}\033[0m')
     
@@ -622,15 +616,13 @@ try:
 
     conn.commit()
     print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m\n\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
-
-except ValueError as e:
-    print("\033[31mThere\'s no \'*документы_поступающих*\', \'*все_заявления*\', \'*все программы*\', google table or \'*егэ*\' file!\033[0m", e)
+    cur.close()
 
 except Exception as e:
     print("\033[31mError: ", e)
     print("\033[0m")
     
-finally:    
+finally:
     conn.close()
     input()
     sys.exit()   
