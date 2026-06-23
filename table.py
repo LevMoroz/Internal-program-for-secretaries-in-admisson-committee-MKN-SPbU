@@ -8,7 +8,7 @@ import re
 import psutil
 
 ###
-### Developed by Morozov Lev, SP MKN SPbU 2025
+### Developed by Morozov Lev, SP MKN SPbU 2025-2026
 ###
 
 st = time.time()
@@ -28,9 +28,10 @@ def imp(fn: str, tn: str) -> None:
     conn.commit()
     print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
 
-def cvt(file: str, uc) -> None:
+# Legacy: 
+def fmt_csv(file: str, uc) -> None:
     tt = time.time()
-    
+    kl = lr
     rf = pandas.read_csv(file, dtype = 'object', engine = 'c', nrows = 0,
         sep = ';', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
     
@@ -45,14 +46,30 @@ def cvt(file: str, uc) -> None:
     else:
         print(f'\033[3;36m{file} is in correct format!\033[0m')
 
+def cvt_to_csv(file: str, uc) -> str:
+    if file.endswith('.xlsx'):
+        tt = time.time()
+        print(f'\033[3;36m.xlsx file {file} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
+        
+        rf = pandas.read_excel(file, dtype = 'object', usecols = uc, engine = 'calamine')
+        
+        file = file.replace('xlsx', 'csv')
+        rf.to_csv(file, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
+
+        print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+    else:
+        print(f'\033[3;36m{file} is in correct format!\033[0m')
+
+    return file
+
 
 init()
-print('\033[1;37;42mGU loading program is started. V1.0R\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.0s\033[0m')
 
 try:
-    conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
+    conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
 except Exception as e:
-    print('\033[41mCannot establish connection with db!\nCheck, that: dbname="gu", user="secretary", password="SPbU@2025", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8\033[0m', e)
+    print('\033[41mCannot establish connection with db!\nCheck, that: dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8\033[0m', e)
     input()
     sys.exit()
 
@@ -62,62 +79,52 @@ try:
     else:
         cd = os.path.dirname(os.path.abspath(__file__))
     
-    files  = [f for f in os.listdir(cd) if f.endswith('.csv') or f.endswith('.xlsx')]
+    files  = [f for f in os.listdir(cd) if (f.endswith('.csv') or f.endswith('.xlsx')) and '~$'.find(f[0]) == -1]
     filec = [f for f in files if f.endswith('.csv')]
     print(f'Located in directory: {cd}\nHave found xlsx or csv files: {files}')
     
-    doc = lst(filec, 'документы_поступающих')
+    doc = lst(files, 'документы_поступающих')
 
-    exam = lst(filec, 'егэ')
+    exam = lst(files, 'егэ')
 
     state = lst(files, 'все_заявления')
 
     google = lst(filec, 'все программы')
 
-    if google != 'google.csv': # Всегда Истина!
-        tt = time.time()
+    tt = time.time()
     
-        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', nrows = 1, sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+    rf = pandas.read_csv(google, dtype = 'object', engine = 'c', nrows = 1, sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
 
-        if rf.iloc[0, 0].find('Фамилия') == -1:
-            print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
+    if rf.iloc[0, 0].find('Фамилия') == -1:
+        print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
 
-            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-            sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
+        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+        sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
 
-            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+        rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
             
-            rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
-
-            print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
-        else:
-            print(f'\033[3;36m{google} is in correct format!\033[0m')
-    
-    if state.endswith('.xlsx'):
-        tt = time.time()
-        print(f'\033[3;36m.xlsx file {state} is latest. Converting to .csv format...\033[0m', end = '', flush = True)
-        #'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP'
-        rf = pandas.read_excel(state, dtype = 'object', usecols = 
-            ['Уникальный код поступающего', 'ФИО', #'Дата рождения ' ???
-                'Телефон', 'Почта', 'СНИЛС', #'Серия', 'Номер',
-                'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Дата добавления КГ', 'Вид мест', 'Приоритет', 'Статус', 
-                'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'], 
-            engine = 'calamine')
-        
-        state = state.replace('xlsx', 'csv')
-        rf.to_csv(state, mode = 'w', sep = ';', header = True, encoding = 'utf-8', index = False, quotechar = '\"', escapechar = '\'', na_rep = '')
+        rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
 
         print(f" - \033[3;32mcompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+    else:
+        print(f'\033[3;36m{google} is in correct format!\033[0m')
     
-    cvt(doc, ['Уникальный код поступающего', 'Тип документа', #'Серия',
+    state = cvt_to_csv(state, 
+                #'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP'
+                ['Уникальный код поступающего', 'ФИО', #'Дата рождения',
+                'Телефон', 'Почта', 'СНИЛС', #'Серия', 'Номер',
+                'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Дата добавления КГ', 'Вид мест', 'Приоритет', 'Статус', 
+                'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'])
+    
+    doc = cvt_to_csv(doc, ['Уникальный код поступающего', 'Тип документа', #'Серия',
                 'Номер', 'Организация, выдавшая документ', 'Статус'])
-        
-    cvt(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
+    
+    exam = cvt_to_csv(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
         
 
     conc = 'conc.csv'
-    if not os.path.isfile(os.path.join(cd, conc)) or not os.path.isfile(os.path.join(cd, google)):
-        raise Exception(f'There\'s no {conc} or {google} file!')
+    if not os.path.isfile(os.path.join(cd, conc)):
+        raise Exception(f'There\'s no {conc} file!')
 
     print(f'Taking files: \033[3;33m{conc}, {google}, {doc}, {exam}, {state}\033[0m')
     
@@ -249,8 +256,8 @@ try:
         Phys int,
         Rus int,
         Ach int,
-        gto text,
         att text,
+        gto text,
         olimps text,
         other text,
         sum int,
@@ -293,10 +300,10 @@ try:
 						(
 							case when id_k in
 		                        (
-		                            103081, 103382, 103410, 104373, 147333, 147671,
-			                        103089, 103275, 103320, 104309, 147347,
-			                        103108, 103312, 103422, 103582, 104479,
-			                        103130, 103368, 103381, 103560, 104300
+		                            22511, 22523, 22525, 22540, 165082,
+                                    22547, 22558, 22561, 22563, 165325, 165466,
+                                    22609, 22610, 22613,
+                                    22522, 22532, 22543, 22551, 165300
 		                        )
 	                        then 0 end
 						) 
@@ -311,12 +318,12 @@ try:
     create materialized view state_mkn as
         select * from state_l where id_k in
             (
-                103081, 103382, 103410, 104373, 147333, 147671,
-                103089, 103275, 103320, 104309, 147347,
-                103108, 103312, 103422, 103582, 104479,
-                103130, 103368, 103381, 103560, 104300
+                22511, 22523, 22525, 22540, 165082,
+                22547, 22558, 22561, 22563, 165325, 165466,
+                22609, 22610, 22613,
+                22522, 22532, 22543, 22551, 165300
             )
-            and (reg_date <= '2025-07-25 18:00:00'::timestamp or pay = 'Платные места');
+            and (reg_date <= '2026-07-25 17:00:00'::timestamp or pay = 'Платные места');
 
     create materialized view state_mkn_id as
         select distinct uuid from state_mkn;
@@ -329,7 +336,7 @@ try:
             MAX(case when subject = 'Русский язык' then result end) as Rus
         from exam as e inner join state_mkn_id as s on e.uuid = s.uuid 
         where subject is not null and 
-            e.status = 'Подтвержден в ФИС ГИА и приема' and date2 >= '2021-01-01'
+            e.status = 'Подтвержден в ФИС ГИА и приема' and date2 >= '2022-01-01'
         group by e.uuid;
 
 
@@ -346,20 +353,20 @@ try:
         )
         select uuid,
             (case when att = 10 then 10 else 0 end) as ach,
-            (case when gto = 10 then 'есть подтв'
-                when gto = 0 then 'не подтв'
-                else 'нет' end) as gto,
             (case when att = 10 then 'подтв'
                 when att = 0 then 'не подтв'
                 else 'нет' end) as att,
+            (case when gto = 10 then 'есть подтв'
+                when gto = 0 then 'не подтв'
+                else 'нет' end) as gto,
             (case when olimp >= 0 then 'есть'
                 else 'нет' end) as olimp,	
             (case when other = 0 then 'есть'
                 else 'нет' end) as other,
-            (case when olimp = 100 then 'Всерос?'
+            (case when olimp = 100 then 'всерос?'
                 when olimp = 10 then 'I ур?'
                 when olimp = 5 then 'II/III ур?'
-                when olimp = 1 then 'Иная?'
+                when olimp = 1 then 'иная?'
                 when olimp = 0 then '??'
                 else '' end) as bvi,
             initcap(lower(place)) as place, --pasp_s, pasp_n, 
@@ -369,12 +376,12 @@ try:
         from 
         (
             select t.uuid,
-                MAX(case when type ~* '(знак гто)' then
-                        case when status ~* '(Подтвержден ЕПГУ)' then 10 else 0 end
-                end) as gto,
                 MAX(case when type ~* '(отличием|медал|цвет)' then
                         case when status ~* '(Подтвержден в ФРДО)' then 10 else 0 end
                 end) as att,
+                MAX(case when type ~* '(знак гто)' then
+                        case when status ~* '(Подтвержден ЕПГУ)' then 10 else 0 end
+                end) as gto,
                 MAX(case when type ~* '(олимпиад)' then
                         case when type ~* '(всерос)' and status ~* '(Подтвержден ЕПГУ)' then 100
                         when type ~* '(II и III уровня)' and status ~* '(Подтвержден ЕПГУ)' then 5
@@ -464,8 +471,8 @@ try:
             e.phys,
             e.rus,
             a.ach,
-            a.gto,
             a.att,
+            a.gto,
             a.olimp as olimps,
             a.other,
             null::integer as Sum,
@@ -526,7 +533,10 @@ try:
                     gu.Name,
                     gu.snils,
                     gu.att_n,
-                    gu.att_p,
+                    (
+                        case when t.att_p = 'подтв' then t.att_p
+                        else gu.att_p
+                    end),
                     t.call,
                     t.call_res,
                     t.prob,
@@ -562,13 +572,13 @@ try:
                         else gu.ach
                     end) as ach,
                     (
+                        case when t.att = 'подтв' then 'подтв'
+                        else gu.att
+                    end) as att,
+                    (
                         case when t.gto = 'подтв' then 'подтв'
                         else gu.gto
                     end) as gto,
-                    (
-                        case when t.att = 'подтв' then 'подтв'
-                        else gu.att
-                    end) att,
                     (
                         case when t.olimps != 'есть' and t.olimps != 'нет' then t.olimps
                         else gu.olimps
@@ -600,6 +610,7 @@ try:
                     else 4
                 end) over (partition by uuid) asc,
                 max(change_date) over (partition by uuid) desc,
+                pay desc,
                 uuid desc, id_k asc, change_date desc;
         """)
     conn.commit()
