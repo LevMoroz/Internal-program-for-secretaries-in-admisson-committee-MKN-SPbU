@@ -55,7 +55,7 @@ def cvt_google(google: str) -> None:
             rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
             sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
 
-            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 44), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 45), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
                     
             rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
 
@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.1s\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.2s\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -229,6 +229,7 @@ try:
         change_date timestamp,
         uuid int,
         Status1C text,
+        StatusEPGU text,
         date_d text,
         Name text,
         snils text,
@@ -325,7 +326,7 @@ try:
                 
     create or replace view exam_result as
         select e.uuid, MAX(case when subject = 'Математика' then result end) as M,
-            MAX(case when subject = 'Информатика и ИКТ' then result end) as Inf,
+            MAX(case when subject = 'Информатика' then result end) as Inf,
             MAX(case when subject = 'Физика' then result end) as Phys,
             MAX(case when subject = 'Русский язык' then result end) as Rus
         from exam as e inner join state_mkn_id as s on e.uuid = s.uuid 
@@ -432,6 +433,7 @@ try:
             end) as change_date,
             s.uuid,
             '' as Status1C,
+            s.status as statusEPGU,
             '' as Secret,
             initcap(lower(s.name)) as name,
             --s.birth_date,
@@ -523,6 +525,7 @@ try:
                     gu.change_date,
                     gu.uuid,
                     t.Status1C,
+                    gu.statusEPGU,
                     t.date_d,
                     gu.Name,
                     gu.snils,
@@ -593,12 +596,12 @@ try:
                     t.comment,
                     t.comment_otv 
                 
-                from gu left join google as t on gu.id_app = t.id_app and gu.id_k = t.id_k and t.status is not null and t.status != 'изменено'
+                from gu left join google as t on gu.id_app = t.id_app and gu.id_k = t.id_k and t.status is not null and t.status !~* '(изменено)'
             )
             order by
-                max(case when status is null or status = '' or status = 'изменено' then 1 else null end) over (partition by uuid) asc,
+                max(case when status is null or status = '' or status ~* '(изменено)' then 1 else null end) over (partition by uuid) asc,
                 (case when min(rp) over (partition by uuid) = 1 then 1 else null end) asc,
-                max(case when status is null or status = '' or status = 'изменено' then 1
+                max(case when status is null or status = '' or status ~* '(изменено)' then 1
                     when status = 'нет в 1С' then 2
                     when status = 'в процессе' then 3
                     else 4
