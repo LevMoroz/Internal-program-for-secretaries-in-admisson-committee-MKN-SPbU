@@ -53,7 +53,7 @@ def cvt_google(google: str) -> None:
             print(f'\033[3;36mGoogle table file {google} is latest. Converting to correct format...\033[0m', end = '', flush = True)
 
             rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
-            sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 9])]
+            sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 10])]
 
             rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 45), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
                     
