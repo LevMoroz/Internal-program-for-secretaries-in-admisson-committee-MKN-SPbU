@@ -30,3 +30,11 @@
 *.exe
 *.out
 *.app
+
+# Tables
+*.csv
+*.xlsx
+
+# Build
+build/
+dist/

@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.3s\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.4u\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -119,6 +119,9 @@ try:
     
     exam = cvt_to_csv(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
         
+    if (time.time() - min([os.path.getmtime(os.path.join(cd, f)) for f in [google, state, doc, exam]])) > 40000:
+        print('\033[41mOne file is older than others by more than 11 hours or just old files by now. Is it okay?\033[0m')
+        time.sleep(3)
 
     print(f'Taking files: \033[3;33m{conc}, {google}, {doc}, {exam}, {state}\033[0m')
     
@@ -345,6 +348,9 @@ try:
                     ('Результат ЕГЭ', 'Итоговое сочинение',
                         'Диплом о среднем профессиональном образовании',
                         'Медицинская справка', 'Удостоверение волонтера (волонтерская книжка)')
+            union all
+            
+            select uuid, null, null, null, null from state_mkn_id 
         )
         select uuid,
             (case when att = 10 then 10 else 0 end) as ach,
