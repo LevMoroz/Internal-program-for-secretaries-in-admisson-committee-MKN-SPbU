@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.45u\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.5p\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -104,6 +104,7 @@ try:
     state = lst(files, 'все_заявления')
     google = lst(filec, 'все программы')
     conc = lst(filec, 'conc.csv')
+    region = lst(filec, 'region.csv')
     
     cvt_google(google)
 
@@ -123,12 +124,12 @@ try:
         print('\033[41mOne file is older than others by more than 11 hours or just old files by now. Is it okay?\033[0m')
         time.sleep(3)
 
-    print(f'Taking files: \033[3;33m{conc}, {google}, {doc}, {exam}, {state}\033[0m')
+    print(f'Taking files: \033[3;33m{conc}, {region}, {google}, {doc}, {exam}, {state}\033[0m')
     
     cur = conn.cursor()
 
     cur.execute("""
-    drop table if exists state, doc, exam, google, concurs_name, result cascade;
+    drop table if exists concurs_name, region, state, doc, exam, google, result cascade;
 
     SET datestyle = 'ISO, DMY';
 
@@ -221,6 +222,12 @@ try:
         code text,
         name text
     );
+                
+    create table if not exists region
+    (
+        pattern text,
+        region text
+    );
 
     create table if not exists google
     (
@@ -275,6 +282,8 @@ try:
     conn.commit()
     
     imp(conc, 'concurs_name')
+
+    imp(region, 'region')
 
     imp(google, 'google')
 
@@ -352,7 +361,8 @@ try:
             
             select uuid, null, null, null, null from state_mkn_id 
         )
-        select uuid,
+        select distinct on (uuid)
+            uuid,
             (case when att = 10 then 10 else 0 end) as ach,
             (case when att = 10 then 'подтв'
                 when att = 0 then 'не подтв'
@@ -370,7 +380,10 @@ try:
                 when olimp = 1 then 'иная?'
                 when olimp = 0 then '??'
                 else '' end) as bvi,
-            initcap(lower(place)) as place, --pasp_s, pasp_n, 
+            (case when region is null then initcap(lower(place))
+                else region end) as place,
+            --pasp_s, pasp_n,
+            --pattern, region, 
             att_n,
             (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
                 else 'не пров' end) as att_p--, att_o
@@ -391,14 +404,16 @@ try:
                         else 0 end
                 end) as olimp,
                 MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
-                MAX(case when type ~* '(паспорт)' then organisation end) as place,
+                MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as place,
                 --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
                 --MAX(case when type ~* '(паспорт)' then n end) as pasp_n,
                 MAX(case when type ~* '(аттестат)' then N end) as att_n,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p--,
                 --MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then organisation end) as att_o
             from t group by t.uuid
-        );
+        ) as gb
+            left join region as r on gb.place ~* r.pattern
+            order by uuid asc, place asc;
 
 
     create or replace view real_p as
