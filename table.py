@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.55f\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.6a\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -380,13 +380,16 @@ try:
                 when olimp = 1 then 'иная?'
                 when olimp = 0 then '??'
                 else '' end) as bvi,
-            (case when region is null then initcap(lower(place))
-                else region end) as place,
-            --pasp_s, pasp_n,
-            --pattern, region, 
+            coalesce(r1.region, '~' || r2.region, '≈' || initcap(lower(pasp_place))) as place,
+            
+            --att_place, pasp_place as place,
+            --r1.pattern as p1, r2.pattern as p2,
+            --r1.region as r1, r2.region as r2,
+            
             att_n,
             (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
-                else 'не пров' end) as att_p--, att_o
+                else 'не пров' end) as att_p
+            --pasp_s, pasp_n,
         from 
         (
             select t.uuid,
@@ -404,15 +407,16 @@ try:
                         else 0 end
                 end) as olimp,
                 MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
-                MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as place,
-                --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
-                --MAX(case when type ~* '(паспорт)' then n end) as pasp_n,
                 MAX(case when type ~* '(аттестат)' then N end) as att_n,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p--,
-                --MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then organisation end) as att_o
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then organisation end) as att_place,
+                MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as pasp_place
+                --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
+                --MAX(case when type ~* '(паспорт)' then n end) as pasp_n
             from t group by t.uuid
         ) as gb
-            left join region as r on gb.place ~* r.pattern
+            left join region as r1 on gb.att_place ~* r1.pattern
+            left join region as r2 on gb.pasp_place ~* r2.pattern
             order by uuid asc, place asc;
 
 
@@ -497,7 +501,7 @@ try:
             '' as Docs,
             '''' || s.phone as phone, 
             lower(s.mail) as mail,
-            '~' || a.place as Region,
+            a.place as Region,
             (
                 case when s.line_check ~* '(ложь|false)' then 'нет'
                 when s.line_check ~* '(истина|true)' then s.check_place
