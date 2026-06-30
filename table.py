@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.6a\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.65a\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -544,7 +544,8 @@ try:
                             (
                                 case when gu.status = 'Отозвано' and t.status != 'Отозвано' then 'изменено (отзыв)'
                                 when gu.rp != t.rp or gu.p1 != t.p1 or gu.p2 != t.p2 or gu.p3 != t.p3 then 'изменено (П)'
-                                when gu.ach > t.ach or (gu.att = 'подтв' and t.att != 'подтв') 
+                                when gu.ach > t.ach or (gu.att = 'подтв' and t.att != 'подтв'
+                                        or gu.att = 'не подтв' and t.att = 'нет') 
                                     or (gu.gto = 'есть подтв' and t.gto != 'есть подтв' and t.gto != 'подтв'
                                             or gu.gto = 'не пров' and t.gto = 'нет')
                                     or (gu.olimps = 'есть' and t.olimps = 'нет')
@@ -552,7 +553,7 @@ try:
                                     or (t.bvi is null and gu.bvi != '')
                                         then 'изменено (ИД)'
                                 else 'изменено (?)'
-                            end) 
+                            end)
                         when gu.change_date = t.change_date then t.status
                         else ''
                     end) as status,
