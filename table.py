@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.7bs\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.8s\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -657,14 +657,14 @@ try:
                 from gu left join google as t on gu.id_app = t.id_app and gu.id_k = t.id_k and t.status is not null
             )
             order by
-                max(case when status is null or status = '' or status ~* '(изменено|в процессе)' then 1 else null end) over (partition by uuid) asc,
+                max(case when status is null or status = '' or status ~* '(изменено|в процессе|нет в)' then 1 else null end) over (partition by uuid) asc,
                 (case when min(rp) over (partition by uuid) = 1 then 1 else null end) asc,
-                max(case when status is null or status = '' or status ~* '(изменено)' then 1
-                    when status ~* '(нет в )' then 2
-                    when status = 'в процессе' then 3
-                    else 4
-                end) over (partition by uuid) asc,
-                max(change_date) over (partition by uuid) desc,
+
+                --max(case when status is null or status = '' then 1
+                --    when status ~* '(изменено|в процессе|нет в)' then 2
+                --end) over (partition by uuid) desc,
+
+                max(change_date) over (partition by uuid) asc,
                 uuid desc,
                 pay desc, id_k asc, change_date desc;
         """)
