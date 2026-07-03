@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.68a\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.7bs\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -105,6 +105,7 @@ try:
     google = lst(filec, 'все программы')
     conc = lst(filec, 'conc.csv')
     region = lst(filec, 'region.csv')
+    school = lst(filec, 'school.csv')
     
     cvt_google(google)
 
@@ -124,12 +125,12 @@ try:
         print('\033[41mOne file is older than others by more than 11 hours or just old files by now. Is it okay?\033[0m')
         time.sleep(3)
 
-    print(f'Taking files: \033[3;33m{conc}, {region}, {google}, {doc}, {exam}, {state}\033[0m')
+    print(f'Taking files: \033[3;33m{conc}, {region}, {school},\n{google}, {doc}, {exam}, {state}\033[0m')
     
     cur = conn.cursor()
 
     cur.execute("""
-    drop table if exists concurs_name, region, state, doc, exam, google, result cascade;
+    drop table if exists concurs_name, region, school, state, doc, exam, google, result cascade;
 
     SET datestyle = 'ISO, DMY';
 
@@ -228,6 +229,11 @@ try:
         pattern text,
         region text
     );
+                
+    create table if not exists school
+    (
+        school text
+    );
 
     create table if not exists google
     (
@@ -282,8 +288,8 @@ try:
     conn.commit()
     
     imp(conc, 'concurs_name')
-
     imp(region, 'region')
+    imp(school, 'school')
 
     imp(google, 'google')
 
@@ -381,8 +387,8 @@ try:
                 when olimp = 0 then '??'
                 else '' end) as bvi,
             coalesce(r1.region, '~' || r2.region, '≈' || initcap(lower(pasp_place))) as place,
+            school, --att_place,
             
-            --att_place, pasp_place as place,
             --r1.pattern as p1, r2.pattern as p2,
             --r1.region as r1, r2.region as r2,
             
@@ -407,9 +413,9 @@ try:
                         else 0 end
                 end) as olimp,
                 MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
-                MAX(case when type ~* '(аттестат)' then N end) as att_n,
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then N end) as att_n,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then organisation end) as att_place,
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then replace(organisation, 'ё', 'е') end) as att_place,
                 MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as pasp_place
                 --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
                 --MAX(case when type ~* '(паспорт)' then n end) as pasp_n
@@ -417,6 +423,16 @@ try:
         ) as gb
             left join region as r1 on gb.att_place ~* r1.pattern
             left join region as r2 on gb.pasp_place ~* r2.pattern
+            left join school as s on (substring(att_n for 3) in ('031', '032', '046', '081') or 
+                    r1.region ~* 'белгород|брянск|курск|севастопол' or r2.region ~* 'белгород|брянск|курск|севастопол')
+                and
+                case when substring(att_n for 3) = '031' then s.school ~* 'белгород'
+                    when substring(att_n for 3) = '032' then s.school ~* 'брянск'
+                    when substring(att_n for 3) = '046' then s.school ~* 'курск'
+                    when substring(att_n for 3) = '081' then s.school ~* 'севастопол' 
+                    else true end
+                and
+                regexp_replace(replace(s.school, 'ё', 'е'), '([«”“"»№\- .,\t\(\)])', '', 'g') ~* ('' || regexp_replace(gb.att_place, '([«”“"»№\- .,\t\(\)])', '', 'g') || '') --Эта контакенация пустоты ускоряет выполнение в 5 раз!!!
             order by uuid asc, place asc;
 
 
@@ -497,8 +513,10 @@ try:
             a.olimp as olimps,
             a.other,
             null::integer as Sum,
-            '' as Kvota,
-            '' as Docs,
+            (case when school is not null or place ~* 'луганск|донецк|херсон|запорожье' then 'Отд Кат'
+                else '' end) as Kvota,
+            (case when school is not null or place ~* 'луганск|донецк|херсон|запорожье' then 'пригр школа!'
+                else '' end) as Docs,
             '''' || s.phone as phone, 
             lower(s.mail) as mail,
             a.place as Region,
@@ -623,8 +641,10 @@ try:
                         else gu.other
                     end) as other,
                     null::int as sum,
-                    t.lgota,
-                    t.docs,
+                    (case when t.lgota is null then gu.kvota
+                        else t.lgota end) as lgota,
+                    (case when t.docs is null then gu.docs
+                        else t.docs end),
                     gu.phone,
                     gu.mail,
                     gu.region,
@@ -646,7 +666,7 @@ try:
                 end) over (partition by uuid) asc,
                 max(change_date) over (partition by uuid) desc,
                 uuid desc,
-                pay asc, id_k asc, change_date desc;
+                pay desc, id_k asc, change_date desc;
         """)
     conn.commit()
 
