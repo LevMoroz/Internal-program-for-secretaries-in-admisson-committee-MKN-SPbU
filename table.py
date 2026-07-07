@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.85s\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.875dnr\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -513,9 +513,9 @@ try:
             a.olimp as olimps,
             a.other,
             null::integer as Sum,
-            (case when school is not null or place ~* 'луганск|донецк|херсон|запорожье' then 'Отд Кат'
+            (case when school is not null or att_n ~ '^16[2-5]' or place ~* 'луганск|донецк|херсон|запорожье' then 'Отд Кат'
                 else '' end) as Kvota,
-            (case when school is not null or place ~* 'луганск|донецк|херсон|запорожье' then 'пригр школа!'
+            (case when school is not null or att_n ~ '^16[2-5]' or place ~* 'луганск|донецк|херсон|запорожье' then 'пригр школа!'
                 else '' end) as Docs,
             '''' || s.phone as phone, 
             lower(s.mail) as mail,
