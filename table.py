@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.875dnr\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.888u\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -412,7 +412,7 @@ try:
                         when type ~* '(в иной олимпиаде)' and status ~* '(Подтвержден ЕПГУ)' then 1
                         else 0 end
                 end) as olimp,
-                MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат)' then 0 end) as other,
+                MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат|о рождении)' then 0 end) as other,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then N end) as att_n,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then replace(organisation, 'ё', 'е') end) as att_place,
@@ -667,7 +667,7 @@ try:
 
                 max(change_date) over (partition by uuid) asc,
                 uuid desc,
-                pay desc, id_k asc, change_date desc;
+                pay desc, rp asc;
         """)
     conn.commit()
 
