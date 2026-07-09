@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.888u\033[0m')
+print('\033[1;37;42mGU loading program is started. V2.9u\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -358,11 +358,8 @@ try:
         (
             select d.uuid, d.type, --d.S, 
                 d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
-            where not d.type ilike '%Диплом бакалавра%' and
-                    d.type not in 
-                    ('Результат ЕГЭ', 'Итоговое сочинение',
-                        'Диплом о среднем профессиональном образовании',
-                        'Медицинская справка', 'Удостоверение волонтера (волонтерская книжка)')
+            where d.type !~* 'бакалавр|магистр|специалист|Результат ЕГЭ|Итоговое сочинение|Медицинская справка|Удостоверение волонтера (волонтерская книжка)'
+                    
             union all
             
             select uuid, null, null, null, null from state_mkn_id 
@@ -399,7 +396,7 @@ try:
         from 
         (
             select t.uuid,
-                MAX(case when type ~* '(отличием|медал|цвет)' then
+                MAX(case when type ~* '(аттестат|среднем профессиональном)' and type ~* '(отличием|медал|цвет)' then
                         case when status ~* '(Подтвержден в ФРДО)' then 10 else 0 end
                 end) as att,
                 MAX(case when type ~* '(знак гто)' then
@@ -412,10 +409,10 @@ try:
                         when type ~* '(в иной олимпиаде)' and status ~* '(Подтвержден ЕПГУ)' then 1
                         else 0 end
                 end) as olimp,
-                MAX(case when not type ~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат|о рождении)' then 0 end) as other,
+                MAX(case when type !~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат|о рождении)' then 0 end) as other,
                 MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then N end) as att_n,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then replace(organisation, 'ё', 'е') end) as att_place,
+                MAX(case when type ~* '(аттестат|среднем профессиональном)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
+                MAX(case when type ~* '(аттестат|среднем профессиональном)' and status ~* '(Подтвержден в ФРДО)' then replace(organisation, 'ё', 'е') end) as att_place,
                 MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as pasp_place
                 --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
                 --MAX(case when type ~* '(паспорт)' then n end) as pasp_n
@@ -464,7 +461,7 @@ try:
             '' as Status,
             s.id_app,
             (
-                case when s.status = 'Отозвано' then 'Отозвано'
+                case when s.status = 'Отозвано' or s.relevance = 'Отозвано' then 'Отозвано'
                 else 'Действующее'
             end) as app_status,
             s.id_k,
@@ -560,7 +557,7 @@ try:
                     (
                         case when gu.change_date > t.change_date then
                             (
-                                case when gu.status = 'Отозвано' and t.status != 'Отозвано' then 'изменено (отзыв)'
+                                case when gu.app_status = 'Отозвано' and t.app_status != 'Отозвано' then 'изменено (отзыв)'
                                 when gu.rp != t.rp or gu.p1 != t.p1 or gu.p2 != t.p2 or gu.p3 != t.p3 then 'изменено (П)'
                                 when gu.ach > t.ach or (gu.att = 'подтв' and t.att != 'подтв'
                                         or gu.att = 'не подтв' and t.att = 'нет') 
