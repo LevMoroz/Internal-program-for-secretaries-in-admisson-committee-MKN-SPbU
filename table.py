@@ -80,7 +80,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V2.9.1r\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.0vi\033[0m')
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -130,7 +130,7 @@ try:
     cur = conn.cursor()
 
     cur.execute("""
-    drop table if exists concurs_name, region, school, state, doc, exam, google, result cascade;
+    drop table if exists concurs_name, region, school, state, doc, exam, google, result, vi, vi_res cascade;
 
     SET datestyle = 'ISO, DMY';
 
@@ -655,7 +655,10 @@ try:
                 from gu left join google as t on t.status is not null and gu.id_app = t.id_app and gu.id_k = t.id_k
             )
             order by
-                max(case when status is null or status = '' or status ~* '(изменено|в процессе|нет в)' then 1 else null end) over (partition by uuid) asc,
+                max(case when op = 'БВИ' and app_status = 'Отозвано' then 1 else null end) over (partition by uuid) asc,
+                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)') and app_status != 'Отозвано' then 1 
+                    when status ~* 'обработан' then 2 
+                    else null end) over (partition by uuid) asc,
                 (case when min(
                     case when app_status != 'Отозвано' then rp
                         else 100 end) over (partition by uuid) = 1 then 1  
@@ -677,6 +680,59 @@ try:
 
     conn.commit()
     print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m\n\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
+
+    vi = False    
+    if vi:
+        print('\033[3m\nCalculating VI table... ', end = '', flush = True)
+        tt = time.time()
+
+        vi = lst(files, 'запись_на_ви')
+        vi = cvt_to_csv(vi, ['Id поступающего', 'ФИО', 'Uid даты сдачи', 'Вуз сдачи', 'Уровни образования', 'Предмет сдачи',
+                            'Вид спорта', 'Источник записи на ВИ', 'Место сдачи (ссылка)', 'очно/онлайн', 'Время начала сдачи (по вузу)',
+                            'Время окончания сдачи (по вузу)', 'Кол-во мест сдачи', 'Резервная дата', 'Для новых территорий',
+                            'Этап приема', 'Результат ЕГЭ', 'Результат ВВИ'])
+        
+        cur.execute("""
+            create table if not exists vi
+            (
+                uuid int,
+                name text,
+                date_id text,
+                university text,
+                level text,
+                subject text,
+                sport_type text,
+                source_vi text,
+                link text,
+                internal text,
+                time_start text,
+                time_end text,
+                place text,
+                reserve text,
+                NewTerr text,
+                Stage text,
+                exam text,
+                vi text
+            );
+        """)
+        
+        conn.commit()
+
+        imp(vi, 'vi')
+
+        cur.execute("""
+            create table vi_res as
+                select distinct on (uuid, subject) vi.* from vi inner join (select distinct name from gu where rp = 1 and app_status != 'Отозвано') as s on vi.name ilike s.name order by uuid, subject
+            """)
+        conn.commit()
+
+        with open('vi_res.csv', 'w', encoding = 'utf-8') as f:
+            cur.copy_expert("COPY public.vi_res TO STDOUT WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8', QUOTE '\"', ESCAPE '''')", f)
+        conn.commit()
+
+        print(f"\033[1;4mCompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
+    
+
     cur.close()
 
 except Exception as e:
