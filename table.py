@@ -6,6 +6,7 @@ import time
 import pandas
 import re
 import psutil
+import configparser
 
 ###
 ### Developed by Morozov Lev, SP MKN SPbU 2025-2026
@@ -80,7 +81,18 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.0vi\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.1c\033[0m')
+
+vi = False
+
+try:
+    cfg = configparser.ConfigParser()
+    cfg.read('settings.ini')
+    vi = cfg.getboolean('settings', 'calculate_vi_table')
+    print('\033[3mcalculate_vi_table = \033[0m', vi)
+except Exception as e:
+    print('\033[1;4;31mProblem with config file settings.ini:\033[0m ', e)
+    time.sleep(3)
 
 try:
     conn = psycopg2.connect(dbname="gu", user="secretary", password="SPbU_MKN_PK", host="127.0.0.1", port="5432", options = "-c client_encoding=utf8")
@@ -97,7 +109,7 @@ try:
     
     files  = [f for f in os.listdir(cd) if (f.endswith('.csv') or f.endswith('.xlsx')) and '~$'.find(f[0]) == -1]
     filec = [f for f in files if f.endswith('.csv')]
-    print(f'Located in directory: {cd}\nHave found xlsx or csv files: {files}')
+    print(f'Located in directory: {cd}\nHave found xlsx or csv files: {len(files)}')
     
     doc = lst(files, 'документы_поступающих')
     exam = lst(files, 'егэ')
@@ -679,9 +691,8 @@ try:
         cur.copy_expert("COPY public.result TO STDOUT WITH (FORMAT csv, DELIMITER ';', HEADER true, ENCODING 'UTF8', QUOTE '\"', ESCAPE '''')", f)
 
     conn.commit()
-    print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m\n\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
-
-    vi = False    
+    print(f"\n\033[1;3;4;32mres.csv is ready!\033[0m")
+    
     if vi:
         print('\033[3m\nCalculating VI table... ', end = '', flush = True)
         tt = time.time()
@@ -732,6 +743,7 @@ try:
 
         print(f"\033[1;4mCompleted!\033[0m \033[35m- {round(time.time() - tt, 3)} s.\033[0m")
     
+    print(f"\nProgram finished \033[35m- total: {round(time.time() - st, 3)} s.\033[0m")
 
     cur.close()
 
