@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.1c\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.1.1c\033[0m')
 
 vi = False
 
@@ -370,7 +370,7 @@ try:
         (
             select d.uuid, d.type, --d.S, 
                 d.N, d.organisation, d.status from state_mkn_id as s left join doc as d on s.uuid = d.uuid 
-            where d.type !~* 'бакалавр|магистр|специалист|Результат ЕГЭ|Итоговое сочинение|Медицинская справка|Удостоверение волонтера (волонтерская книжка)'
+            where d.type !~* 'бакалавр|магистр|специалист|Результат ЕГЭ|Итоговое сочинение|Медицинская справка|волонтер|волонтёр'
                     
             union all
             
