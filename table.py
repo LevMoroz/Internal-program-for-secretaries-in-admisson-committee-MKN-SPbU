@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.1.1c\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.2bf\033[0m')
 
 vi = False
 
@@ -449,7 +449,7 @@ try:
         (
             select id_app, pay, id_k, 
                 row_number() over (partition by id_app, pay order by priority) as rp
-            from state_l where status != 'Отозвано'
+            from state_l where status !~* 'отозвано|отклонено'
         );
 
     create or replace view priority as
@@ -504,7 +504,7 @@ try:
             end) as pay,
             c.name as Program,
             (
-                case when s.status = 'Отозвано' then s.priority
+                case when s.status ~* 'отозвано|отклонено' then s.priority
                 else rp.rp
             end) as rp,
             p.p1,
@@ -570,7 +570,7 @@ try:
                         case when gu.change_date > t.change_date then
                             (
                                 case when gu.app_status = 'Отозвано' and t.app_status != 'Отозвано' then 'изменено (отзыв)'
-                                when gu.rp != t.rp or gu.p1 != t.p1 or gu.p2 != t.p2 or gu.p3 != t.p3 then 'изменено (П)'
+                                when gu.rp != t.rp or gu.p1 != t.p1 or coalesce(gu.p2 != t.p2, true) or coalesce(gu.p3 != t.p3, true) then 'изменено (П)'
                                 when gu.ach > t.ach or (gu.att = 'подтв' and t.att != 'подтв'
                                         or gu.att = 'не подтв' and t.att = 'нет') 
                                     or (gu.gto = 'есть подтв' and t.gto != 'есть подтв' and t.gto != 'подтв'
@@ -664,11 +664,11 @@ try:
                     t.comment,
                     t.comment_otv 
                 
-                from gu left join google as t on t.status is not null and gu.id_app = t.id_app and gu.id_k = t.id_k
+                from gu left join google as t on (t.status is not null or t.secr is not null) and gu.id_app = t.id_app and gu.id_k = t.id_k
             )
             order by
                 max(case when op = 'БВИ' and app_status = 'Отозвано' then 1 else null end) over (partition by uuid) asc,
-                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)') and app_status != 'Отозвано' then 1 
+                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)' or statusEPGU = 'На рассмотрении') and app_status != 'Отозвано' then 1 
                     when status ~* 'обработан' then 2 
                     else null end) over (partition by uuid) asc,
                 (case when min(
