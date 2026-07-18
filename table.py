@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.4ll\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.4.1l\033[0m')
 
 vi = False
 
@@ -119,6 +119,10 @@ try:
     region = lst(filec, 'region.csv')
     school = lst(filec, 'school.csv')
     
+    if (time.time() - min([os.path.getmtime(os.path.join(cd, f)) for f in [google, state, doc, exam]])) > 40000:
+        print('\033[41mOne file is older than others by more than 11 hours or just old files by now. Is it okay?\033[0m')
+        time.sleep(3)
+
     cvt_google(google)
 
     state = cvt_to_csv(state,
@@ -131,10 +135,6 @@ try:
                 'Номер', 'Организация, выдавшая документ', 'Статус'])
     
     exam = cvt_to_csv(exam, ['Уникальный код поступающего', 'Тип документа', 'Статус', 'Предмет', 'Балл', 'Дата решения ГЭК'])
-        
-    if (time.time() - min([os.path.getmtime(os.path.join(cd, f)) for f in [google, state, doc, exam]])) > 40000:
-        print('\033[41mOne file is older than others by more than 11 hours or just old files by now. Is it okay?\033[0m')
-        time.sleep(3)
 
     print(f'Taking files: \033[3;33m{conc}, {region}, {school},\n{google}, {doc}, {exam}, {state}\033[0m')
     
