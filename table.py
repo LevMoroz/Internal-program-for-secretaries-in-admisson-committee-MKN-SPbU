@@ -362,7 +362,7 @@ try:
                 select e.*, row_number() over (partition by e.uuid, subject, date_part('year', date2) order by date2 desc) as rn 
                     from exam as e inner join state_mkn_id as s on e.uuid = s.uuid 
                         where subject is not null and 
-                            e.status = 'Подтвержден в ФИС ГИА и приема' and date2 >= '2022-01-01'
+                            e.status ~* 'Подтвержден в ФИС|Подтвержден вуз' and date2 >= '2022-01-01'
             )
             where rn = 1
         )
