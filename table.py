@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.3e\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.4ll\033[0m')
 
 vi = False
 
@@ -121,10 +121,9 @@ try:
     
     cvt_google(google)
 
-    state = cvt_to_csv(state, 
-                #'B, C, E, G:I, O, R, S:T, AA, AH, AJ:AK, AN:AP'
+    state = cvt_to_csv(state,
                 ['Уникальный код поступающего', 'ФИО', #'Дата рождения',
-                'Телефон', 'Почта', 'СНИЛС', #'Серия', 'Номер',
+                'Телефон', 'Почта', 'СНИЛС',
                 'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Дата добавления КГ', 'Вид мест', 'Приоритет', 'Статус', 
                 'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'])
     
@@ -149,82 +148,33 @@ try:
     create table if not exists state
     (
         --id int,
-        uuid int,
-        Name text,
-        --Sex text,
+        uuid int, name text,
         --birth_date date,
-        --birth_Place text,
-        Phone text,
-        Mail text,
-        Snils text,
-        --Pasp text,
-        --pasp_s text,
-        --pasp_n text,
-        --Country text,
-        --Pasp_date date,
-        id_app int,
-        --id_gu text,
-        --Source text,
-        Relevance text,
-        reg_date timestamp,
-        Change_date timestamp,
-        --Payment_type text,
-        --Entrance_type text,
-        --Dormitory text,
-        --Special_conditions text,
-        --Music text,
-        --id_kg int,
-        id_k int,
-        date_k timestamp,
-        --source_kg text,
-        --direction text,
-        --program text,
-        --format text,
-        pay text,
-        --sport text,
-        priority int,
-        status text,
-        --online_pay text,
-        --line_pay text,
-        line_check text,
-        online_check text,
-        check_place text
-        --rej text,
-        --enr text
+        phone text, mail text, snils text,
+        id_app int, relevance text,
+        reg_date timestamp, change_date timestamp,
+        id_k int, date_k timestamp,
+        pay text, priority int, status text,
+        line_check text, online_check text, check_place text
     );
 
     create table if not exists exam
     (
         --id int,
         uuid int,
-        --doc_id int,
-        --doc_type_id int,
-        type text,
-        status text,
-        --S int,
-        --N int,
-        --date date,
-        --organisation text,
-        --reg_n int,
+        type text, status text,
         --region text,
-        subject text,
-        result int,
-        date2 date
+        subject text, result int, date date
     );
 
     create table if not exists doc 
     (	
         --id int,
         uuid int,
-        --doc_id int,
-        --type_id int,
         type text,
         --S text,
         N text,
-        --date date,
-        Organisation text,
-        status text--,
-        --file text
+        organisation text, status text
     );
 
     create table if not exists concurs_name 
@@ -249,51 +199,23 @@ try:
 
     create table if not exists google
     (
-        Secr text,
-        Status text,
-        id_app int,
-        app_status text,
-        id_k int,
-        change_date timestamp,
-        uuid int,
-        Status1C text,
-        StatusEPGU text,
-        date_d text,
-        Name text,
-        snils text,
-        att_n text,
-        att_p text,
-        call text,
-        call_res text,
+        secr text, status text,
+        id_app int, app_status text, id_k int, change_date timestamp, uuid int,
+        status1C text, statusEPGU text, date_d text,
+        name text, snils text, att_n text, att_p text,
+        call text, call_res text,
         prob int,
-        conc_type text,
-        program text,
-        RP int,
-        P1 text,
-        P2 text,
-        P3 text,
-        OP text,
-        bvi text,
-        M int,
-        Inf int,
-        Phys int,
-        Rus int,
-        Ach int,
-        att text,
-        gto text,
-        olimps text,
-        other text,
+        conc_type text, program text,
+        RP int, P1 text, P2 text, P3 text,
+        OP text, bvi text,
+        M int, Inf int, Phys int, Rus int,
+        ach int, att text, gto text, olimps text, other text,
         sum int,
-        Lgota text,
-        docs text,
-        phone text,
-        mail text,
-        region text,
-        line_check text,
-        online_check text,
+        lgota text, docs text,
+        phone text, mail text, region text,
+        line_check text, online_check text,
         color int,
-        comment text,
-        comment_otv text
+        comment text, comment_otv text
     );
     """)
 
@@ -359,10 +281,10 @@ try:
         (
             select * from
             (
-                select e.*, row_number() over (partition by e.uuid, subject, date_part('year', date2) order by date2 desc) as rn 
+                select e.*, row_number() over (partition by e.uuid, subject, date_part('year', date) order by date desc) as rn 
                     from exam as e inner join state_mkn_id as s on e.uuid = s.uuid 
                         where subject is not null and 
-                            e.status ~* 'Подтвержден в ФИС|Подтвержден вуз' and date2 >= '2022-01-01'
+                            e.status ~* 'Подтвержден в ФИС|Подтвержден вуз' and date >= '2022-01-01'
             )
             where rn = 1
         )
@@ -405,15 +327,11 @@ try:
                 when olimp = 0 then '??'
                 else '' end) as bvi,
             coalesce(r1.region, '~' || r2.region, '≈' || initcap(lower(pasp_place))) as place,
-            school, --att_place,
-            
-            --r1.pattern as p1, r2.pattern as p2,
-            --r1.region as r1, r2.region as r2,
-            
+            school,
             att_n,
             (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
                 else 'не пров' end) as att_p
-            --pasp_s, pasp_n,
+            --att_place, pasp_s, pasp_n,
         from 
         (
             select t.uuid,
@@ -478,8 +396,7 @@ try:
        
                 
     create materialized view GU as
-        select '' as Who,
-            '' as Status,
+        select '' as Who, '' as Status,
             s.id_app,
             (
                 case when s.status = 'Отозвано' or s.relevance = 'Отозвано' then 'Отозвано'
@@ -496,13 +413,10 @@ try:
             '' as Secret,
             initcap(lower(s.name)) as name,
             --s.birth_date,
-            s.snils,
-            a.att_n,
-            a.att_p,
-            --a.att_o,
+            s.snils, a.att_n, a.att_p,
+            --a.att_place,
             --a.pasp_s || ' ' || a.pasp_n,
-            '' as Call,
-            '' as Call_res,
+            '' as Call, '' as Call_res,
             null::int as prob,
             (
                 case when s.pay = 'Основные места в рамках КЦП' then 'общий'
@@ -516,20 +430,11 @@ try:
                 case when s.status ~* 'отозвано|отклонено' then s.priority
                 else rp.rp
             end) as rp,
-            p.p1,
-            p.p2,
-            p.p3,
+            p.p1, p.p2, p.p3,
             '' as OP,
             a.bvi,
-            e.m,
-            e.inf,
-            e.phys,
-            e.rus,
-            a.ach,
-            a.att,
-            a.gto,
-            a.olimp as olimps,
-            a.other,
+            e.m, e.inf, e.phys, e.rus,
+            a.ach, a.att, a.gto, a.olimp as olimps, a.other,
             null::integer as Sum,
             (case when school is not null or att_n ~ '^16[2-5]' or place ~* 'луганск|донецк|херсон|запорожье' then 'Отд Кат'
                 else '' end) as Kvota,
@@ -593,30 +498,18 @@ try:
                         when gu.change_date = t.change_date then t.status
                         else ''
                     end) as status,
-                    gu.id_app,
-                    gu.app_status,
-                    gu.id_k,
-                    gu.change_date,
-                    gu.uuid,
-                    t.Status1C,
-                    gu.statusEPGU,
+                    gu.id_app, gu.app_status, gu.id_k, gu.change_date, gu.uuid,
+                    t.Status1C, gu.statusEPGU,
                     t.date_d,
-                    gu.Name,
-                    gu.snils,
-                    gu.att_n,
+                    gu.Name, gu.snils, gu.att_n,
                     (
                         case when t.att_p = 'подтв' then t.att_p
                         else gu.att_p
-                    end),
-                    t.call,
-                    t.call_res,
+                    end) as att_p,
+                    t.call, t.call_res,
                     t.prob,
-                    gu.pay,
-                    gu.program,
-                    gu.rp,
-                    gu.P1,
-                    gu.P2,
-                    gu.P3,
+                    gu.pay, gu.program,
+                    gu.rp, gu.P1, gu.P2, gu.P3,
                     t.op,
                     (
                         case when gu.change_date = t.change_date and t.status is not null or t.bvi is not null then t.bvi
@@ -663,11 +556,8 @@ try:
                         else t.lgota end) as lgota,
                     (case when t.docs is null then gu.docs
                         else t.docs end),
-                    gu.phone,
-                    gu.mail,
-                    gu.region,
-                    gu.line_check,
-                    gu.online_check,
+                    gu.phone, gu.mail, gu.region,
+                    gu.line_check, gu.online_check,
                     (case when gu.kvota = 'Отд Кат' and t.color is null then 1
                         else t.color end),
                     t.comment,
@@ -715,22 +605,14 @@ try:
         cur.execute("""
             create table if not exists vi
             (
-                uuid int,
-                name text,
-                date_id text,
+                uuid int, name text, date_id text,
                 university text,
-                level text,
-                subject text,
+                level text, subject text,
                 sport_type text,
-                source_vi text,
-                link text,
-                internal text,
-                time_start text,
-                time_end text,
-                place text,
-                reserve text,
-                NewTerr text,
-                Stage text,
+                source_vi text, link text, internal text,
+                time_start text, time_end text,
+                place text, reserve text,
+                NewTerr text, Stage text,
                 exam text,
                 vi text
             );
@@ -742,7 +624,7 @@ try:
 
         cur.execute("""
             create table vi_res as
-                select distinct on (uuid, subject) vi.* from vi inner join (select distinct name from gu where rp = 1 and app_status != 'Отозвано') as s on vi.name ilike s.name order by uuid, subject
+                select distinct on (uuid, subject) vi.* from vi inner join (select distinct name from gu where rp = 1 and app_status != 'Отозвано') as s on vi.name ~* s.name order by uuid, subject
             """)
         conn.commit()
 
