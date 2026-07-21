@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.4.1l\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.4.3l\033[0m')
 
 vi = False
 
@@ -484,7 +484,9 @@ try:
                         case when gu.change_date > t.change_date then
                             (
                                 case when gu.app_status = 'Отозвано' and t.app_status != 'Отозвано' then 'изменено (отзыв)'
-                                when gu.rp != t.rp or gu.p1 != t.p1 or coalesce(gu.p2 != t.p2, true) or coalesce(gu.p3 != t.p3, true) then 'изменено (П)'
+                                when (gu.rp != t.rp or gu.p1 != t.p1 or coalesce(gu.p2 != t.p2, true) or coalesce(gu.p3 != t.p3, true))
+                                    and gu.app_status != 'Отозвано' and gu.statusepgu != 'Отклонено'
+                                        then 'изменено (П)'
                                 when gu.ach > t.ach or (gu.att = 'подтв' and t.att != 'подтв'
                                         or gu.att = 'не подтв' and t.att = 'нет') 
                                     or (gu.gto = 'есть подтв' and t.gto != 'есть подтв' and t.gto != 'подтв'
@@ -567,7 +569,7 @@ try:
             )
             order by
                 max(case when op = 'БВИ' and app_status = 'Отозвано' then 1 else null end) over (partition by uuid) asc,
-                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)' or statusEPGU = 'На рассмотрении') and app_status != 'Отозвано' then 1 
+                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)') and app_status != 'Отозвано' then 1 
                     when status ~* 'обработан' then 2 
                     else null end) over (partition by uuid) asc,
                 (case when min(
