@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.1p\033[0m')
 
 vi = False
 M_pass = 310
@@ -579,20 +579,20 @@ try:
                         else gu.bvi
                     end) as bvi,
                     (
-                        case when t.M != 100 or t.M is null then gu.M
-                        else 100
+                        case when t.M = 100 or t.op = 'Есть ВИ' then t.M
+                            else gu.M
                     end) as M,
                     (
-                        case when t.Inf != 100 or t.Inf is null then gu.Inf
-                        else 100
+                        case when t.Inf = 100 or t.op = 'Есть ВИ' then t.Inf
+                            else gu.Inf
                     end) as Inf,
                     (
-                        case when t.Phys != 100 or t.Phys is null then gu.Phys
-                        else 100
+                        case when t.Phys = 100 or t.op = 'Есть ВИ' then t.Phys
+                            else gu.Phys
                     end) as Phys,
                     (
-                        case when t.Rus != 100 or t.Rus is null then gu.Rus
-                        else 100
+                        case when t.Rus = 100 or t.op = 'Есть ВИ' then t.Rus
+                            else gu.Rus
                     end) as Rus,
                     (
                         case when t.ach = 10 then 10
