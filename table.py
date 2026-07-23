@@ -81,15 +81,25 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.4.3l\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5p\033[0m')
 
 vi = False
+M_pass = 310
+NOD_pass = 310
+AI360_pass = 310
+SP_pass = 310
 
 try:
     cfg = configparser.ConfigParser()
     cfg.read('settings.ini')
     vi = cfg.getboolean('settings', 'calculate_vi_table')
+    M_pass = cfg.getint('settings', 'M_pass')
+    NOD_pass = cfg.getint('settings', 'NOD_pass')
+    AI360_pass = cfg.getint('settings', 'AI360_pass')
+    SP_pass = cfg.getint('settings', 'SP_pass')
+
     print('\033[3mcalculate_vi_table = \033[0m', vi)
+    print('\033[3mM_pass, NOD_pass, AI360_pass, SP_pass := \033[0m', M_pass, NOD_pass, AI360_pass, SP_pass)
 except Exception as e:
     print('\033[1;4;31mProblem with config file settings.ini:\033[0m ', e)
     time.sleep(3)
@@ -141,7 +151,8 @@ try:
     cur = conn.cursor()
 
     cur.execute("""
-    drop table if exists concurs_name, region, school, state, doc, exam, google, result, vi, vi_res cascade;
+    drop table if exists concurs_name, region, school, pass_mark, vi_res,
+        state, doc, exam, google, result, vi cascade;
 
     SET datestyle = 'ISO, DMY';
 
@@ -197,6 +208,12 @@ try:
         school text
     );
 
+    create table if not exists pass_mark
+    (
+        program text primary key,
+        mark int not null
+    );
+
     create table if not exists google
     (
         secr text, status text,
@@ -204,7 +221,7 @@ try:
         status1C text, statusEPGU text, date_d text,
         name text, snils text, att_n text, att_p text,
         call text, call_res text,
-        prob int,
+        prob numeric,
         conc_type text, program text,
         RP int, P1 text, P2 text, P3 text,
         OP text, bvi text,
@@ -238,7 +255,13 @@ try:
     print('\033[3mCalculating result table...', end = '', flush = True)
     tt = time.time()
 
-    cur.execute("""
+    cur.execute(f"""
+    insert into pass_mark values
+        ('М', {M_pass}),
+        ('НОД', {NOD_pass}),
+        ('AI360', {AI360_pass}),
+        ('СП', {SP_pass});
+
     create or replace view state_mkn_cut as
         select * from state where uuid in 
                 (
@@ -509,7 +532,45 @@ try:
                         else gu.att_p
                     end) as att_p,
                     t.call, t.call_res,
-                    t.prob,
+                    case when t.prob % 1.0 = 0.0 then t.prob
+                    else
+                        round
+                        (
+                            100 * 
+                            ((
+                                case when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' then 0
+                                when t.op = 'БВИ' then 0.99
+                                when t.op = '100б (бви?)' then 0
+                                when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 0.95
+                                when gu.line_check != 'нет' or gu.online_check != 'нет' then 0.05
+                                else 1::numeric / (gu.rp + 3)
+                            end)
+                            *
+                            (
+                                1 - greatest
+                                (
+                                    0,
+                                    least
+                                    (
+                                        1, 
+                                        0.5 + 
+                                        (
+                                            coalesce(t.sum, gu.M + greatest(gu.Inf, (case when gu.program = 'М' then gu.Phys end)) + gu.Rus + gu.ach, 0)
+                                            -
+                                            least
+                                            (
+                                                case when gu.rp > 1 then coalesce(pm1.mark, 0) else 400 end,
+                                                case when gu.rp > 2 then coalesce(pm2.mark, 0) else 400 end,
+                                                case when gu.rp > 3 then coalesce(pm3.mark, 0) else 400 end,
+                                                case when gu.rp > 4 then 0 else 400 end
+                                            )
+                                        )::numeric / 6
+                                    )
+                                )
+                            )
+                            + 0.001), 1
+                        )
+                    end as prob,
                     gu.pay, gu.program,
                     gu.rp, gu.P1, gu.P2, gu.P3,
                     t.op,
@@ -566,6 +627,9 @@ try:
                     t.comment_otv 
                 
                 from gu left join google as t on (t.status is not null or t.secr is not null) and gu.id_app = t.id_app and gu.id_k = t.id_k
+                    left join pass_mark as pm1 on gu.p1 = pm1.program
+                    left join pass_mark as pm2 on gu.p2 = pm2.program
+                    left join pass_mark as pm3 on gu.p3 = pm3.program
             )
             order by
                 max(case when op = 'БВИ' and app_status = 'Отозвано' then 1 else null end) over (partition by uuid) asc,
