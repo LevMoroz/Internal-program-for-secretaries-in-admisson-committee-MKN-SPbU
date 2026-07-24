@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.1p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.5p\033[0m')
 
 vi = False
 M_pass = 310
@@ -352,7 +352,7 @@ try:
             coalesce(r1.region, '~' || r2.region, '≈' || initcap(lower(pasp_place))) as place,
             school,
             att_n,
-            (case when att_p = 'Подтвержден в ФРДО' then 'подтв'
+            (case when att_p ~* 'Подтвержден в ФРДО|Подтвержден вуз' then 'подтв'
                 else 'не пров' end) as att_p
             --att_place, pasp_s, pasp_n,
         from 
@@ -372,8 +372,8 @@ try:
                         else 0 end
                 end) as olimp,
                 MAX(case when type !~* '(знак гто|отличием|медал|цвет|олимпиад|паспорт|аттестат|о рождении)' then 0 end) as other,
-                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО)' then N end) as att_n,
-                MAX(case when type ~* '(аттестат|среднем профессиональном)' and status ~* '(Подтвержден в ФРДО)' then status end) as att_p,
+                MAX(case when type ~* '(аттестат)' and status ~* '(Подтвержден в ФРДО|Подтвержден вуз)' then N end) as att_n,
+                MAX(case when type ~* '(аттестат|среднем профессиональном)' and status ~* '(Подтвержден в ФРДО|Подтвержден вуз)' then status end) as att_p,
                 MAX(case when type ~* '(аттестат|среднем профессиональном)' and status ~* '(Подтвержден в ФРДО)' then replace(organisation, 'ё', 'е') end) as att_place,
                 MAX(case when type ~* '(паспорт)' and status ~* '(Подтвержден ЕПГУ)' then organisation end) as pasp_place
                 --MAX(case when type ~* '(паспорт)' then s end) as pasp_s,
@@ -538,8 +538,13 @@ try:
                         (
                             100 * 
                             ((
-                                case when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' then 0
-                                when t.op = 'БВИ' then 0.99
+                                case when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' or
+                                    t.op != 'БВИ' and (
+                                        greatest(t.M, gu.M, 0) < (case when gu.program = 'М' then 85 else 80 end) or
+                                        greatest(t.Inf, gu.Inf, (case when gu.program = 'М' then greatest(t.Phys, gu.Phys) end), 0) < (case when gu.program = 'М' then 75 else 80 end) or
+                                        greatest(t.Rus, gu.Rus, 0) < (case gu.program when 'М' then 55 when 'СП' then 60 else 70 end)
+                                    ) then 0
+                                when t.op = 'БВИ' then 0.98
                                 when t.op = '100б (бви?)' then 0
                                 when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 0.95
                                 when gu.line_check != 'нет' or gu.online_check != 'нет' then 0.05
@@ -547,26 +552,29 @@ try:
                             end)
                             *
                             (
-                                1 - greatest
-                                (
-                                    0,
-                                    least
+                                case when t.op = 'БВИ' then 1
+                                else
+                                    1 - greatest
                                     (
-                                        1, 
-                                        0.5 + 
+                                        0,
+                                        least
                                         (
-                                            coalesce(t.sum, gu.M + greatest(gu.Inf, (case when gu.program = 'М' then gu.Phys end)) + gu.Rus + gu.ach, 0)
-                                            -
-                                            least
+                                            1, 
+                                            0.5 + 
                                             (
-                                                case when gu.rp > 1 then coalesce(pm1.mark, 0) else 400 end,
-                                                case when gu.rp > 2 then coalesce(pm2.mark, 0) else 400 end,
-                                                case when gu.rp > 3 then coalesce(pm3.mark, 0) else 400 end,
-                                                case when gu.rp > 4 then 0 else 400 end
-                                            )
-                                        )::numeric / 6
+                                                coalesce(t.sum, gu.M + greatest(gu.Inf, (case when gu.program = 'М' then gu.Phys end)) + gu.Rus + gu.ach, 0)
+                                                -
+                                                least
+                                                (
+                                                    case when gu.rp > 1 then coalesce(pm1.mark, 0) else 400 end,
+                                                    case when gu.rp > 2 then coalesce(pm2.mark, 0) else 400 end,
+                                                    case when gu.rp > 3 then coalesce(pm3.mark, 0) else 400 end,
+                                                    case when gu.rp > 4 then 0 else 400 end
+                                                )
+                                            )::numeric / 6
+                                        )
                                     )
-                                )
+                                end
                             )
                             + 0.001), 1
                         )
