@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.5p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.6p\033[0m')
 
 vi = False
 M_pass = 310
@@ -539,7 +539,7 @@ try:
                             100 * 
                             ((
                                 case when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' or
-                                    t.op != 'БВИ' and (
+                                    coalesce(t.op != 'БВИ', true) and coalesce(t.lgota != 'ОтК БПВИ', true) and (
                                         greatest(t.M, gu.M, 0) < (case when gu.program = 'М' then 85 else 80 end) or
                                         greatest(t.Inf, gu.Inf, (case when gu.program = 'М' then greatest(t.Phys, gu.Phys) end), 0) < (case when gu.program = 'М' then 75 else 80 end) or
                                         greatest(t.Rus, gu.Rus, 0) < (case gu.program when 'М' then 55 when 'СП' then 60 else 70 end)
@@ -553,6 +553,9 @@ try:
                             *
                             (
                                 case when t.op = 'БВИ' then 1
+                                when gu.pay !~* 'общий|договор' then
+                                    case when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 1::numeric / (gu.rp ^ 2)
+                                    else 1 end
                                 else
                                     1 - greatest
                                     (
@@ -566,10 +569,11 @@ try:
                                                 -
                                                 least
                                                 (
-                                                    case when gu.rp > 1 then coalesce(pm1.mark, 0) else 400 end,
-                                                    case when gu.rp > 2 then coalesce(pm2.mark, 0) else 400 end,
-                                                    case when gu.rp > 3 then coalesce(pm3.mark, 0) else 400 end,
-                                                    case when gu.rp > 4 then 0 else 400 end
+                                                    case when gu.rp > 1 then coalesce(pm1.mark, 0) end,
+                                                    case when gu.rp > 2 then coalesce(pm2.mark, 0) end,
+                                                    case when gu.rp > 3 then coalesce(pm3.mark, 0) end,
+                                                    case when gu.rp > 4 then 0 end,
+                                                    400
                                                 )
                                             )::numeric / 6
                                         )
