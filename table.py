@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.8p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.9p\033[0m')
 
 vi = False
 M_pass = 310
@@ -556,7 +556,7 @@ try:
                                 when gu.pay !~* 'общий|договор' then
                                     case when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 1::numeric /  (2.35 ^ (gu.rp - 1))
                                     when gu.line_check = 'нет' and gu.online_check = 'нет' then 1::numeric / (1.3 ^ (gu.rp - 1))
-                                    else 1 / gu.rp end
+                                    else 1::numeric / gu.rp end
                                 else
                                     1 - greatest
                                     (
