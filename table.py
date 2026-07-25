@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.7p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.8p\033[0m')
 
 vi = False
 M_pass = 310
@@ -555,7 +555,8 @@ try:
                                 case when t.op = 'БВИ' then 1
                                 when gu.pay !~* 'общий|договор' then
                                     case when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 1::numeric /  (2.35 ^ (gu.rp - 1))
-                                    else 1::numeric / (1.3 ^ (gu.rp - 1)) end
+                                    when gu.line_check = 'нет' and gu.online_check = 'нет' then 1::numeric / (1.3 ^ (gu.rp - 1))
+                                    else 1 / gu.rp end
                                 else
                                     1 - greatest
                                     (
@@ -645,8 +646,10 @@ try:
             )
             order by
                 max(case when op = 'БВИ' and app_status = 'Отозвано' then 1 else null end) over (partition by uuid) asc,
-                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)') and app_status != 'Отозвано' then 1 
-                    when status ~* 'обработан' then 2 
+                min(case when (status is null or status = '' or status ~* '(изменено|в процессе|нет в)') and app_status != 'Отозвано' and statusEPGU != 'Отклонено' then 1 
+                    when app_status = 'Отозвано' then 4
+                    when statusEPGU = 'Отклонено' then 3
+                    when status ~* 'обработан' then 2
                     else null end) over (partition by uuid) asc,
                 (case when min(
                     case when app_status != 'Отозвано' then rp
