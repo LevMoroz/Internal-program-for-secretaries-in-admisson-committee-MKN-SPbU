@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.9p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.5.10p\033[0m')
 
 vi = False
 M_pass = 310
@@ -532,7 +532,11 @@ try:
                         else gu.att_p
                     end) as att_p,
                     t.call, t.call_res,
-                    case when t.prob % 1.0 = 0.0 then t.prob
+                    case when t.prob % 1.0 = 0.0 and not
+                        ( 
+                            gu.line_check != t.line_check or gu.online_check != t.online_check
+                        )
+                        then t.prob
                     else
                         round
                         (
