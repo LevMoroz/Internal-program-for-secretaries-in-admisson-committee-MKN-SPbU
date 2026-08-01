@@ -56,7 +56,7 @@ def cvt_google(google: str) -> None:
             rf = pandas.read_csv(google, dtype = 'object', engine = 'c', sep = ',', header = None, encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
             sr = [i for i in range(len(rf)) if pandas.isna(rf.iloc[i, 10])]
 
-            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 45), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
+            rf = pandas.read_csv(google, dtype = 'object', engine = 'c', skiprows = sr, usecols = range(0, 46), sep = ',', encoding = 'utf-8', quotechar = '\"', escapechar = '\'')
                     
             rf.to_csv(google, mode = 'w', index = False, sep = ';', header = True, encoding = 'utf-8', quotechar = '\"', escapechar = '\'', na_rep = '')
 
@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.5.10p\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.6sp\033[0m')
 
 vi = False
 M_pass = 310
@@ -227,7 +227,7 @@ try:
         OP text, bvi text,
         M int, Inf int, Phys int, Rus int,
         ach int, att text, gto text, olimps text, other text,
-        sum int,
+        sum int, position int,
         lgota text, docs text,
         phone text, mail text, region text,
         line_check text, online_check text,
@@ -580,7 +580,7 @@ try:
                                                     case when gu.rp > 4 then 0 end,
                                                     400
                                                 )
-                                            )::numeric / 6
+                                            )::numeric / 4
                                         )
                                     )
                                 end
@@ -631,7 +631,7 @@ try:
                         case when t.other != 'есть' and t.other != 'нет' then t.other
                         else gu.other
                     end) as other,
-                    null::int as sum,
+                    null::int as sum, t.position,
                     (case when t.lgota is null then gu.kvota
                         else t.lgota end) as lgota,
                     (case when t.docs is null then gu.docs
