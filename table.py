@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.6sp\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.7pi\033[0m')
 
 vi = False
 M_pass = 310
@@ -97,9 +97,13 @@ try:
     NOD_pass = cfg.getint('settings', 'NOD_pass')
     AI360_pass = cfg.getint('settings', 'AI360_pass')
     SP_pass = cfg.getint('settings', 'SP_pass')
+    id_k = cfg.get('settings', 'id_k')
+    last_day = cfg.get('settings', 'last_day_of_receiving_documents_on_budget')
 
     print('\033[3mcalculate_vi_table = \033[0m', vi)
     print('\033[3mM_pass, NOD_pass, AI360_pass, SP_pass := \033[0m', M_pass, NOD_pass, AI360_pass, SP_pass)
+    print('\033[mid_k amount = \033[0m', len(list(id_k.split())))
+    print('\033[3mlast_day = \033[0m', last_day)
 except Exception as e:
     print('\033[1;4;31mProblem with config file settings.ini:\033[0m ', e)
     time.sleep(3)
@@ -117,7 +121,8 @@ try:
     else:
         cd = os.path.dirname(os.path.abspath(__file__))
     
-    files  = [f for f in os.listdir(cd) if (f.endswith('.csv') or f.endswith('.xlsx')) and '~$'.find(f[0]) == -1]
+    files  = [f for f in os.listdir(cd) if (f.endswith('.csv') or f.endswith('.xlsx')) and '.~$'.find(f[0]) == -1] + \
+        ['tables\\' + f for f in os.listdir(cd + '\\tables') if (f.endswith('.csv') or f.endswith('.xlsx')) and '~$'.find(f[0]) == -1]
     filec = [f for f in files if f.endswith('.csv')]
     print(f'Located in directory: {cd}\nHave found xlsx or csv files: {len(files)}')
     
@@ -270,10 +275,7 @@ try:
 						(
 							case when id_k in
 		                        (
-		                            22511, 22523, 22525, 22540, 165082,
-                                    22547, 22558, 22561, 22563, 165325, 165466,
-                                    22609, 22610, 22613,
-                                    22522, 22532, 22543, 22551, 165300
+		                            {id_k}
 		                        )
 	                        then 0 end
 						) 
@@ -288,12 +290,9 @@ try:
     create materialized view state_mkn as
         select * from state_l where id_k in
             (
-                22511, 22523, 22525, 22540, 165082,
-                22547, 22558, 22561, 22563, 165325, 165466,
-                22609, 22610, 22613,
-                22522, 22532, 22543, 22551, 165300
+                {id_k}
             )
-            and (reg_date <= '2026-07-25 17:00:00'::timestamp or pay = 'Платные места');
+            and (reg_date <= {last_day}::timestamp or pay = 'Платные места');
 
     create materialized view state_mkn_id as
         select distinct uuid from state_mkn;
