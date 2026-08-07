@@ -81,7 +81,7 @@ def imp(fn: str, tn: str) -> None:
 
 
 init()
-print('\033[1;37;42mGU loading program is started. V3.7pi\033[0m')
+print('\033[1;37;42mGU loading program is started. V3.8с\033[0m')
 
 vi = False
 M_pass = 310
@@ -144,6 +144,7 @@ try:
                 ['Уникальный код поступающего', 'ФИО', #'Дата рождения',
                 'Телефон', 'Почта', 'СНИЛС',
                 'Id заявления', 'Актуальность', 'Дата регистрации', 'Дата изменения', 'Id конкурса', 'Дата добавления КГ', 'Вид мест', 'Приоритет', 'Статус', 
+                'Онлайн-договор на платное обучение', 'Очный договор на платное обучение',
                 'Согласие подано очно', 'Согласие подано онлайн', 'Куда подано согласие'])
     
     doc = cvt_to_csv(doc, ['Уникальный код поступающего', 'Тип документа', #'Серия',
@@ -171,6 +172,7 @@ try:
         reg_date timestamp, change_date timestamp,
         id_k int, date_k timestamp,
         pay text, priority int, status text,
+        online_contract text, line_contract text,
         line_check text, online_check text, check_place text
     );
 
@@ -466,6 +468,10 @@ try:
             lower(s.mail) as mail,
             a.place as Region,
             (
+                case when s.online_contract is not null or  line_contract != 'Отсутствует' then true
+                else false
+            end) as wants_contract,
+            (
                 case when s.line_check ~* '(ложь|false)' then 'нет'
                 when s.line_check ~* '(истина|true)' then s.check_place
             end) as line_check,
@@ -535,31 +541,34 @@ try:
                         ( 
                             gu.line_check != t.line_check or gu.online_check != t.online_check
                         )
-                        then t.prob
+                            then t.prob
+                        when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' or
+                            coalesce(t.op != 'БВИ', true) and coalesce(t.lgota != 'ОтК БПВИ', true) and (
+                                greatest(t.M, gu.M, 0) < (case when gu.program = 'М' then 85 else 80 end) or
+                                greatest(t.Inf, gu.Inf, (case when gu.program = 'М' then greatest(t.Phys, gu.Phys) end), 0) < (case when gu.program = 'М' then 75 else 80 end) or
+                                greatest(t.Rus, gu.Rus, 0) < (case gu.program when 'М' then 55 when 'СП' then 60 else 70 end)
+                            ) then 0.1
+                        when gu.statusEPGU ~ 'Не прошло по конкурсу' then 0.1
+                        when gu.statusEPGU ~ 'Включено в приказ на зачисление' then 99.9
+                        when gu.pay = 'договор' and wants_contract then 50.1
+                        when gu.pay = 'договор' and (gu.line_check != 'нет' or gu.online_check != 'нет') then 5.1
+                        when t.op = 'БВИ' then 0.95
                     else
                         round
                         (
                             100 * 
                             ((
-                                case when gu.app_status = 'Отозвано' or gu.statusEPGU = 'Отклонено' or
-                                    coalesce(t.op != 'БВИ', true) and coalesce(t.lgota != 'ОтК БПВИ', true) and (
-                                        greatest(t.M, gu.M, 0) < (case when gu.program = 'М' then 85 else 80 end) or
-                                        greatest(t.Inf, gu.Inf, (case when gu.program = 'М' then greatest(t.Phys, gu.Phys) end), 0) < (case when gu.program = 'М' then 75 else 80 end) or
-                                        greatest(t.Rus, gu.Rus, 0) < (case gu.program when 'М' then 55 when 'СП' then 60 else 70 end)
-                                    ) then 0
-                                when t.op = 'БВИ' then 0.98
-                                when t.op = '100б (бви?)' then 0
+                                case when t.op = '100б (бви?)' then 0.05
                                 when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 0.95
                                 when gu.line_check != 'нет' or gu.online_check != 'нет' then 0.05
                                 else 1::numeric / (gu.rp + 3)
                             end)
                             *
                             (
-                                case when t.op = 'БВИ' then 1
-                                when gu.pay !~* 'общий|договор' then
+                                case when gu.pay !~* 'общий|договор' then
                                     case when gu.line_check = 'СПбГУ' or gu.online_check = 'СПбГУ' then 1::numeric /  (2.35 ^ (gu.rp - 1))
-                                    when gu.line_check = 'нет' and gu.online_check = 'нет' then 1::numeric / (1.3 ^ (gu.rp - 1))
-                                    else 1::numeric / gu.rp end
+                                        when gu.line_check = 'нет' and gu.online_check = 'нет' then 1::numeric / (1.3 ^ (gu.rp - 1))
+                                        else 1::numeric / gu.rp end
                                 else
                                     1 - greatest
                                     (
